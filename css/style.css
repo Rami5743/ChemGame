@@ -223,10 +223,12 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 /* ---------- the table ---------- */
 
 .table {
+  /* The molecule stands above its atoms, so the whole width is left for the
+     diagram; a wide one, glucose above all, scrolls rather than being cut. */
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
   align-items: flex-start;
-  flex-wrap: wrap;
   min-height: 140px;
   background: #141a24;
   border: 1px dashed var(--line);
@@ -243,11 +245,15 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   gap: 6px;
   direction: ltr;
   justify-content: start;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
   align-items: center;
   justify-items: center;
 }
 .units-grid.units-plain {
   display: flex;
+  overflow-x: visible;
   flex-wrap: wrap;
   gap: 10px;
   direction: rtl;
