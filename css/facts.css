@@ -1,0 +1,85 @@
+/* The printed sheet about the cards: the green title band, the blue-grey half
+   for the atoms and the pale yellow half for the molecules, justified text in
+   one column with the photographs standing in the margins. */
+
+:root {
+  --green: #92d050;
+  --atoms-bg: #deeaf6;
+  --mols-bg: #ffffcc;
+  --caption: #44546a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: #000;
+  background: var(--mols-bg);
+  font-family: "Segoe UI", "Noto Sans Hebrew", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.inner { max-width: 900px; margin: 0 auto; padding: 0 22px; }
+
+header.band {
+  background: var(--green);
+  color: #fff;
+  padding: 20px 0;
+}
+header .inner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+h1 { margin: 0; font-size: 27px; font-weight: 800; }
+nav { display: flex; gap: 14px; flex-wrap: wrap; }
+nav a { color: #fff; font-size: 14px; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.7); }
+nav a:hover { border-bottom-color: #fff; color: #f7ffe9; }
+
+section { padding: 26px 0 30px; }
+section::after { content: ""; display: block; clear: both; }
+section.atoms { background: var(--atoms-bg); }
+section.molecules { background: var(--mols-bg); }
+
+h2 { text-align: center; font-size: 22px; margin: 0 0 18px; }
+p { margin: 11px 0; text-align: justify; }
+.term { font-weight: 800; }
+
+/* ---------- the photographs ---------- */
+
+figure { margin: 0 0 16px; }
+figure.side { width: 154px; }
+figure.start { float: inline-start; margin-inline-end: 20px; }
+figure.end { float: inline-end; margin-inline-start: 20px; }
+figure img { width: 100%; height: auto; display: block; }
+figure img.rounded { border-radius: 14px; }
+figure img.oval { border-radius: 50%; }
+
+figcaption {
+  margin-top: 5px;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--caption);
+  text-align: center;
+}
+
+figure.wide { clear: both; width: auto; margin: 22px 0; }
+figure.wide img { width: auto; max-width: min(580px, 100%); margin: 0 auto; }
+figure.wide figcaption { text-align: justify; }
+
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  .inner { padding: 0 14px; }
+  h1 { font-size: 22px; }
+  figure.side { width: 116px; }
+  figure.start { margin-inline-end: 14px; }
+  figure.end { margin-inline-start: 14px; }
+}
+
+@media (max-width: 430px) {
+  figure.side { float: none; width: min(190px, 70%); margin: 14px auto; }
+}

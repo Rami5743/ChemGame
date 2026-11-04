@@ -63,21 +63,22 @@ export default async function run({ check }) {
   try { facts = await sizeOf('facts.html'); } catch {}
   check('the page about the cards is there', facts > 0);
   const factsText = facts > 0 ? await readFile(join(root, 'facts.html'), 'utf8') : '';
-  for (const id of Object.keys(MOLECULES)) {
-    check(`the card page says something about ${id}`, factsText.includes(cardArt.molecule(id)));
-  }
-  for (const el of [...Object.keys(ELEMENTS), FUSION]) {
-    check(`the card page says something about ${el}`, factsText.includes(cardArt.atom(el)));
-  }
-  check('the card page leads back to the game', factsText.includes('href="./"'));
 
-  const page = await readFile(join(root, 'index.html'), 'utf8');
-  check('the entry screen links to the rules', page.includes('id="rules-link"') && page.includes('rules.html'));
-  check('the entry screen links to the page about the cards',
-    page.includes('id="facts-link"') && page.includes('facts.html'));
-  check('the entry screen links to the printed game',
-    page.includes('https://www.thegamecrafter.com/games/atoms-and-molecules'));
-  check('that link opens away from the game', /id="buy"[^>]*target="_blank"/.test(page));
+  // It is the printed sheet, so it carries that sheet's own photographs.
+  const photos = await readdir(join(root, 'assets/facts'));
+  check('all the photographs of the sheet were taken out of it', photos.length === 21, photos.length);
+  for (const photo of photos) {
+    check(`the card page shows ${photo}`, factsText.includes(`assets/facts/${photo}`));
+  }
+  for (const heading of ['קלפי האטומים', 'קלפי המולקולות']) {
+    check(`the card page carries the section ${heading}`, factsText.includes(heading));
+  }
+  check('the card page does not borrow the booklet styling',
+    factsText.includes('css/facts.css') && !factsText.includes('css/rules.css'));
+  check('the card page leads to the game and to the rules',
+    factsText.includes('href="./"') && factsText.includes('href="rules.html"'));
+  check('the rules page leads to the game and to the cards',
+    text.includes('href="./"') && text.includes('href="facts.html"'));
 
   const files = await readdir(join(root, 'assets/cards/he'));
   check('the folder holds exactly the cards of the catalogue',

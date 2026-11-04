@@ -10,8 +10,9 @@ The printed game's own material is kept under `materials/` as it was supplied �
 the rules in Hebrew and English, the card faces in both languages, the backs,
 the booklet, the boxes and the fact sheets. The card images are built from it,
 `rules.html` is the booklet set as one continuous page, and `facts.html` is
-the physics, chemistry and biology behind each card. The entry screen also
-links to the printed game at The Game Crafter.
+the sheet about the cards — the physics, chemistry and biology behind them —
+each in the colours and the layout of the printed thing it came from. The
+entry screen also links to the printed game at The Game Crafter.
 
 ## Playing
 
@@ -74,6 +75,7 @@ who has closed the page.
 | `facts.html`       | what each card is, in the same colours                |
 | `css/style.css`    | styling                                               |
 | `css/rules.css`    | the rules page                                        |
+| `css/facts.css`    | the sheet about the cards                             |
 | `js/cards.js`      | the printed deck as a catalogue, and the art paths    |
 | `js/rules.js`      | the game itself — no network, no DOM                  |
 | `js/net.js`        | broker connection, topics, retained messages          |
@@ -100,6 +102,13 @@ After changing the card art, rebuild the images:
 
 ```bash
 node tools/build-cards.mjs
+```
+
+The two pages built from the printed material have their own extractors, which
+need Python with Pillow, and poppler for the second:
+
+```bash
+python3 tools/extract-booklet-art.py && python3 tools/extract-facts-art.py
 ```
 
 ## Configuration
