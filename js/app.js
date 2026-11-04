@@ -1,6 +1,14 @@
 import { createBus } from './net.js';
 import { newGame, apply, publicView, privateView } from './rules.js';
-import { MOLECULES, ELEMENTS } from './cards.js';
+import {
+  MOLECULES,
+  ELEMENTS,
+  FUSION,
+  FUSION_CARD,
+  ALKANE_MIN,
+  ALKANE_MAX,
+  cardArt,
+} from './cards.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -407,18 +415,75 @@ function nameOf(id) {
   return row ? row.name : 'שחקן';
 }
 
-// Stands in for the board until the cards are drawn on screen.
-function boardSummary(g) {
-  if (!g.area) return '';
-  const parts = [];
-  parts.push(g.area.molecule ? `מולקולה: ${MOLECULES[g.area.molecule].name}` : 'אין מולקולה על השולחן');
-  if (g.area.alkaneN) parts.push(`אטומי פחמן: ${g.area.alkaneN}`);
-  if (g.area.units.length) {
-    parts.push('על השולחן: ' + g.area.units.map((u) => ELEMENTS[u.el].symbol).join(' '));
-  }
-  parts.push(`קופת אטומים: ${g.atomDeck}`, `קופת מולקולות: ${g.molDeck}`);
-  return parts.join(' · ');
+/* ---------- what the player has selected ---------- */
+
+const chosen = { molecule: null, atoms: new Set(), alkaneN: 3 };
+
+function clearChoice() {
+  chosen.molecule = null;
+  chosen.atoms.clear();
 }
+
+async function act(move) {
+  const error = await sendMove(move);
+  if (!error) {
+    clearChoice();
+    render();
+  }
+}
+
+/* ---------- building blocks ---------- */
+
+function cardButton({ src, alt, pickable, chosen: isChosen, dim, badge, onClick, title, id }) {
+  const el = document.createElement('button');
+  el.className =
+    'cardbtn' + (pickable ? ' pickable' : '') + (isChosen ? ' chosen' : '') + (dim ? ' dim' : '');
+  el.type = 'button';
+  el.disabled = !pickable;
+  if (title) el.title = title;
+  if (id) el.dataset.id = id;
+
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = alt;
+  img.loading = 'lazy';
+  el.append(img);
+
+  if (badge) {
+    const b = document.createElement('span');
+    b.className = 'badge';
+    b.textContent = badge;
+    el.append(b);
+  }
+  if (pickable && onClick) el.addEventListener('click', onClick);
+  return el;
+}
+
+const atomCard = (el, opts = {}) =>
+  cardButton({ src: cardArt.atom(el), alt: el === FUSION ? FUSION_CARD.name : ELEMENTS[el].name, ...opts });
+
+const moleculeCard = (id, opts = {}) =>
+  cardButton({ src: cardArt.molecule(id), alt: MOLECULES[id].name, ...opts });
+
+function button(label, act, onClick, enabled = true) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  b.dataset.act = act;
+  b.disabled = !enabled;
+  if (enabled) b.addEventListener('click', onClick);
+  return b;
+}
+
+const alkaneLabel = (n) => `C${n}H${2 * n + 2}`;
+const isAlkane = (id) => MOLECULES[id] && MOLECULES[id].special === 'alkanes';
+
+function chosenMoleculeId() {
+  const card = (myCards?.molecules || []).find((c) => c.id === chosen.molecule);
+  return card ? card.mol : null;
+}
+
+/* ---------- the screen ---------- */
 
 function render() {
   if (!snapshot) return;
@@ -497,11 +562,20 @@ function renderLobby() {
 
 function renderGame() {
   const inGame = snapshot.order.some((p) => p.id === me.id);
-  // Whose turn it is shows as a frame in the list of players. The banner says
-  // only what the frame cannot.
   const g = snapshot.game || {};
   const waiting = g.phase === 'takeback' ? g.takeback.pending : [snapshot.turn];
+  const myMove = inGame && !g.winner && waiting.includes(me.id);
 
+  renderBanner(g, inGame, waiting);
+  renderSeats(g, waiting);
+  renderTable(g, myMove);
+  renderDecks(g);
+  renderHand(g, myMove);
+  renderActions(g, myMove);
+  renderOverlay(g);
+}
+
+function renderBanner(g, inGame, waiting) {
   const banner = $('turn-banner');
   banner.className = 'banner';
   if (!inGame) {
@@ -513,12 +587,11 @@ function renderGame() {
     banner.textContent = PROMPT[g.phase] || 'תורך.';
     banner.classList.add('mine');
   } else {
-    banner.textContent = '';
-    banner.classList.add('hidden');
+    banner.textContent = `ממתינים ל${nameOf(waiting[0])}.`;
   }
+}
 
-  $('board').textContent = boardSummary(g);
-
+function renderSeats(g, waiting) {
   const players = $('players');
   players.textContent = '';
   snapshot.order.forEach((p, i) => {
@@ -542,6 +615,185 @@ function renderGame() {
     li.append(seat, who, count);
     players.append(li);
   });
+}
+
+function renderTable(g, myMove) {
+  const slot = $('table-mol');
+  slot.textContent = '';
+  if (g.area.molecule) {
+    slot.append(
+      moleculeCard(g.area.molecule, {
+        badge: g.area.alkaneN ? alkaneLabel(g.area.alkaneN) : null,
+        title: MOLECULES[g.area.molecule].name,
+      })
+    );
+  } else {
+    const e = document.createElement('span');
+    e.className = 'empty';
+    e.textContent = 'אין מולקולה על השולחן.';
+    slot.append(e);
+  }
+
+  const takingBack = myMove && g.phase === 'takeback';
+  const units = $('table-units');
+  units.textContent = '';
+  for (const u of g.area.units) {
+    const wrap = document.createElement('div');
+    wrap.className = 'unit' + (u.cards.length > 1 ? ' fused' : '');
+    for (const c of u.cards) {
+      const mine = takingBack && u.by === me.id && c.el !== FUSION;
+      wrap.append(
+        atomCard(c.el, {
+          id: c.id,
+          pickable: mine,
+          title: mine ? 'קח בחזרה' : nameOf(u.by),
+          onClick: () => act({ t: 'takeBack', card: c.id }),
+        })
+      );
+    }
+    if (u.cards.length > 1) {
+      const sum = document.createElement('span');
+      sum.className = 'sum';
+      sum.textContent = `= ${ELEMENTS[u.el].symbol}`;
+      wrap.append(sum);
+    }
+    units.append(wrap);
+  }
+}
+
+function renderDecks(g) {
+  const decks = $('decks');
+  decks.textContent = '';
+  const pile = (src, label) => {
+    const d = document.createElement('div');
+    d.className = 'pile';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    const t = document.createElement('span');
+    t.textContent = label;
+    d.append(img, t);
+    return d;
+  };
+  decks.append(
+    pile(cardArt.atomBack(), `אטומים בקופה: ${g.atomDeck} · משומשים: ${g.atomDiscard}`),
+    pile(cardArt.moleculeBack(), `מולקולות בקופה: ${g.molDeck} · משומשות: ${g.molDiscard}`)
+  );
+}
+
+function renderHand(g, myMove) {
+  const pickable = myMove && (g.phase === 'opening' || g.phase === 'building');
+
+  const mols = $('hand-mols');
+  mols.textContent = '';
+  for (const c of myCards?.molecules || []) {
+    mols.append(
+      moleculeCard(c.mol, {
+        id: c.id,
+        pickable,
+        chosen: chosen.molecule === c.id,
+        title: MOLECULES[c.mol].name,
+        onClick: () => {
+          chosen.molecule = chosen.molecule === c.id ? null : c.id;
+          render();
+        },
+      })
+    );
+  }
+
+  const atoms = $('hand-atoms');
+  atoms.textContent = '';
+  for (const c of myCards?.atoms || []) {
+    atoms.append(
+      atomCard(c.el, {
+        id: c.id,
+        pickable,
+        chosen: chosen.atoms.has(c.id),
+        onClick: () => {
+          if (chosen.atoms.has(c.id)) chosen.atoms.delete(c.id);
+          else chosen.atoms.add(c.id);
+          render();
+        },
+      })
+    );
+  }
+}
+
+function renderActions(g, myMove) {
+  const bar = $('actions');
+  bar.textContent = '';
+  if (!myMove || g.phase === 'picking') return;
+
+  const atoms = [...chosen.atoms];
+  const molId = chosenMoleculeId();
+
+  if (isAlkane(molId)) {
+    const field = document.createElement('label');
+    field.className = 'num';
+    field.textContent = 'אטומי פחמן';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.id = 'alkane-n';
+    input.min = String(ALKANE_MIN);
+    input.max = String(ALKANE_MAX);
+    input.value = String(chosen.alkaneN);
+    // Stored without a re-render, so typing does not steal the field away.
+    input.addEventListener('input', () => {
+      chosen.alkaneN = Number(input.value);
+    });
+    field.append(input);
+    bar.append(field);
+  }
+  const alkaneN = isAlkane(molId) ? chosen.alkaneN : undefined;
+
+  if (g.phase === 'opening') {
+    bar.append(
+      button('פתח מולקולה', 'open', () =>
+        act({ t: 'startMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
+        !!chosen.molecule && atoms.length > 0
+      ),
+      button('משוך 5 קלפי מולקולה', 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
+      button('משוך 5 קלפי אטום', 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
+    );
+    return;
+  }
+
+  if (g.phase === 'building') {
+    bar.append(
+      button('הנח', 'place', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 0 && !chosen.molecule),
+      button('החלף מולקולה', 'swap', () =>
+        act({ t: 'swapMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
+        !!chosen.molecule && atoms.length > 0
+      )
+    );
+    if (g.atomDeck || g.atomDiscard) {
+      bar.append(button('משוך קלף אטום', 'draw', () => act({ t: 'drawAtom' })));
+    } else {
+      bar.append(button('ויתור על התור', 'pass', () => act({ t: 'pass' })));
+    }
+    return;
+  }
+
+  if (g.phase === 'takeback') {
+    bar.append(button('לא לקחת כלום', 'takeNothing', () => act({ t: 'takeBack', card: null })));
+  }
+}
+
+function renderOverlay(g) {
+  const overlay = $('overlay');
+  const pick = myCards?.pick;
+  const mine = g.phase === 'picking' && snapshot.turn === me.id && pick;
+  overlay.classList.toggle('hidden', !mine);
+  if (!mine) return;
+
+  $('overlay-title').textContent =
+    pick.kind === 'atoms' ? 'בחר קלף אטום אחד להשאיר' : 'בחר קלף מולקולה אחד להשאיר';
+  const box = $('overlay-cards');
+  box.textContent = '';
+  for (const c of pick.cards) {
+    const opts = { id: c.id, pickable: true, onClick: () => act({ t: 'pick', card: c.id }) };
+    box.append(pick.kind === 'atoms' ? atomCard(c.el, opts) : moleculeCard(c.mol, opts));
+  }
 }
 
 // The page's own handle on the game. The host validates every move, so

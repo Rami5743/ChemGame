@@ -1,66 +1,9 @@
 // Plays a whole game through three browsers. The moves are sent with the
 // page's own move(), not by clicking, so this suite is about the host, the
 // protocol and the state everyone ends up holding — not about the screen.
-import { MOLECULES, FUSION } from '../../js/cards.js';
-import { formulaOf, isPartOf, isComplete, unitElement } from '../../js/rules.js';
+import { formulaOf, isPartOf } from '../../js/rules.js';
+import { candidates, compositionOf } from '../support/bot.mjs';
 import { openPlayer, connected } from '../support/player.mjs';
-
-const compositionOf = (units) => {
-  const comp = {};
-  for (const u of units) comp[u.el] = (comp[u.el] || 0) + 1;
-  return comp;
-};
-
-// What this player could legally do, worked out from the public table and his
-// own cards with the same functions the host uses.
-function candidates(state, cards, meId) {
-  const g = state.game;
-  if (g.phase === 'takeback') return [{ t: 'takeBack', card: null }];
-  if (g.phase === 'picking') return (cards.pick?.cards || []).map((c) => ({ t: 'pick', card: c.id }));
-
-  const atoms = cards.atoms.filter((c) => c.el !== FUSION);
-  const out = [];
-
-  if (g.phase === 'opening') {
-    for (const m of cards.molecules) {
-      const spec = MOLECULES[m.mol];
-      const ns = spec.special === 'alkanes' ? [1, 2, 3, 4] : [undefined];
-      for (const n of ns) {
-        const formula = formulaOf(m.mol, n);
-        for (const a of atoms) {
-          if (formula[a.el]) out.push({ t: 'startMolecule', molecule: m.id, cards: [a.id], alkaneN: n });
-        }
-      }
-    }
-    out.push({ t: 'drawFive', kind: 'molecules' }, { t: 'drawFive', kind: 'atoms' });
-    return out;
-  }
-
-  const formula = formulaOf(g.area.molecule, g.area.alkaneN);
-  const here = compositionOf(g.area.units);
-  const fits = [];
-  for (const a of atoms) {
-    const next = { ...here, [a.el]: (here[a.el] || 0) + 1 };
-    if (isPartOf(next, formula)) fits.push({ move: { t: 'placeUnit', cards: [a.id] }, done: isComplete(next, formula) });
-  }
-  fits.sort((x, y) => Number(y.done) - Number(x.done));
-  out.push(...fits.map((f) => f.move));
-
-  for (const m of cards.molecules) {
-    const spec = MOLECULES[m.mol];
-    const ns = spec.special === 'alkanes' ? [1, 2, 3] : [undefined];
-    for (const n of ns) {
-      const f2 = formulaOf(m.mol, n);
-      if (!isPartOf(here, f2)) continue;
-      for (const a of atoms) {
-        const next = { ...here, [a.el]: (here[a.el] || 0) + 1 };
-        if (isPartOf(next, f2)) out.push({ t: 'swapMolecule', molecule: m.id, cards: [a.id], alkaneN: n });
-      }
-    }
-  }
-  out.push({ t: 'drawAtom' }, { t: 'pass' });
-  return out;
-}
 
 // A fixed shuffle, so this suite plays the same game every time.
 const SEED = 20260401;
@@ -143,7 +86,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     const page = pages[actor];
     const cards = await readCards(page);
     let acted = false;
-    for (const move of candidates(state, cards, actor)) {
+    for (const move of candidates(state, cards)) {
       const error = await sendMove(page, move);
       if (!error) {
         acted = true;

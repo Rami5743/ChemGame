@@ -69,12 +69,31 @@
 
       <div class="main">
         <div id="turn-banner" class="banner"></div>
-        <div id="board" class="placeholder"></div>
+
+        <h3>אזור המשחק</h3>
+        <div id="table" class="table">
+          <div id="table-mol" class="slot"></div>
+          <div id="table-units" class="units"></div>
+        </div>
+
+        <div id="decks" class="decks"></div>
+        <div id="actions" class="actions"></div>
+        <p id="game-note" class="note"></p>
+
+        <h3>הקלפים שלך</h3>
+        <div id="hand-mols" class="hand"></div>
+        <div id="hand-atoms" class="hand"></div>
       </div>
 
     </div>
-    <p id="game-note" class="note"></p>
   </section>
+
+  <div id="overlay" class="overlay hidden">
+    <div class="sheet">
+      <h3 id="overlay-title"></h3>
+      <div id="overlay-cards" class="hand"></div>
+    </div>
+  </div>
 
 </main>
 

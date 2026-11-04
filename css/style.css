@@ -38,7 +38,8 @@ h1 { font-size: 20px; margin: 0; letter-spacing: 0.5px; }
 h2 { font-size: 19px; margin: 0 0 14px; }
 h3 { font-size: 15px; margin: 22px 0 8px; color: var(--dim); font-weight: 600; }
 
-main { max-width: 760px; margin: 0 auto; padding: 16px; }
+main { max-width: 1040px; margin: 0 auto; padding: 16px; }
+#view-name, #view-lobby { max-width: 720px; }
 
 .view.hidden, .hidden { display: none; }
 
@@ -120,18 +121,106 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .banner.mine { border-color: var(--accent); color: var(--accent); }
 .banner.over { border-color: var(--good); color: var(--good); }
 
-.placeholder {
+/* ---------- the two columns of the game screen ---------- */
+
+.board { display: flex; gap: 18px; align-items: flex-start; }
+.side { flex: 0 0 200px; position: sticky; top: 16px; }
+.side h3 { margin-top: 0; }
+.main { flex: 1 1 auto; min-width: 0; }
+.main h3:first-child { margin-top: 0; }
+
+/* ---------- cards ---------- */
+
+.cardbtn {
+  --w: 86px;
+  position: relative;
+  width: var(--w);
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: none;
+  line-height: 0;
+  cursor: default;
+}
+.cardbtn img { width: 100%; height: auto; border-radius: 6px; display: block; }
+.cardbtn.pickable { cursor: pointer; }
+.cardbtn.pickable:hover { border-color: #4a607d; transform: translateY(-3px); }
+.cardbtn.chosen { border-color: var(--accent); transform: translateY(-6px); }
+.cardbtn.dim img { opacity: 0.55; }
+.cardbtn .badge {
+  position: absolute;
+  inset-block-start: -8px;
+  inset-inline-start: -6px;
+  background: var(--accent);
+  color: #06121f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+  border-radius: 999px;
+  padding: 0 7px;
+}
+
+/* ---------- the table ---------- */
+
+.table {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 160px;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  min-height: 140px;
   background: #141a24;
   border: 1px dashed var(--line);
   border-radius: 12px;
-  padding: 16px;
-  color: var(--dim);
-  font-size: 14px;
+  padding: 12px;
 }
+.table .empty { color: var(--dim); font-size: 14px; }
+.slot { position: relative; }
+.units { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.unit { display: flex; gap: 4px; padding: 4px; border-radius: 10px; }
+.unit.fused { border: 1px solid var(--accent); background: rgba(77, 163, 255, 0.08); }
+.unit .cardbtn { --w: 62px; }
+.unit .sum {
+  align-self: center;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  padding-inline: 4px;
+}
+
+/* ---------- decks, actions, hand ---------- */
+
+.decks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; color: var(--dim); font-size: 13px; }
+.decks .pile { display: flex; align-items: center; gap: 8px; }
+.decks .pile img { width: 34px; border-radius: 4px; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.actions .num { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; }
+.actions .num input { width: 64px; }
+
+.hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 10px; margin-bottom: 10px; }
+
+/* ---------- the overlay ---------- */
+
+.overlay.hidden { display: none; }
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 11, 16, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+}
+.sheet {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  max-width: 620px;
+  width: 100%;
+}
+.sheet h3 { margin-top: 0; color: var(--ink); }
 
 .players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .players li {
