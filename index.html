@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChemGame</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>ChemGame</h1>
+  <div id="status" class="status" data-state="off">מנותק</div>
+</header>
+
+<main>
+
+  <section id="view-name" class="view">
+    <h2 id="name-title">משחק חדש</h2>
+    <label for="name-input">השם שלך</label>
+    <div class="row">
+      <input id="name-input" maxlength="16" autocomplete="off" placeholder="איך לקרוא לך">
+      <button id="name-go" class="primary">צור משחק</button>
+    </div>
+    <p id="name-note" class="note"></p>
+  </section>
+
+  <section id="view-lobby" class="view hidden">
+    <h2>חדר המתנה</h2>
+
+    <div class="linkbox">
+      <label for="share">הקישור למשחק</label>
+      <div class="row">
+        <input id="share" readonly>
+        <button id="copy">העתק</button>
+      </div>
+      <p class="note">שלח את הקישור לכל מי שאתה רוצה שישחק.</p>
+    </div>
+
+    <h3>שחקנים</h3>
+    <ol id="roster" class="roster"></ol>
+
+    <div id="host-controls" class="hidden">
+      <button id="start" class="primary">התחל משחק</button>
+      <p class="note">הסדר ברשימה הוא סדר התורות. עם ההתחלה החדר ננעל.</p>
+    </div>
+
+    <p id="lobby-note" class="note"></p>
+  </section>
+
+  <section id="view-game" class="view hidden">
+    <div id="turn-banner" class="banner"></div>
+
+    <h3>על השולחן</h3>
+    <div id="table" class="table"></div>
+
+    <h3>שחקנים</h3>
+    <ul id="players" class="players"></ul>
+
+    <h3>הקלפים שלך</h3>
+    <div id="hand" class="hand"></div>
+
+    <p id="game-note" class="note"></p>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
