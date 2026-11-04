@@ -221,7 +221,12 @@
 
 <script>
   // Keep the room when the rules were opened from inside a game.
-  if (location.hash) document.getElementById('to-game').href = './?lang=en' + location.hash;
+  if (location.hash) {
+    document.getElementById('to-game').href = './?lang=en' + location.hash;
+    // The other language keeps the room too, so a flag is never a way out.
+    const other = document.querySelector('.flag[href]');
+    if (other) other.href += location.hash;
+  }
 </script>
 </body>
 </html>

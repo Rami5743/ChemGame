@@ -40,6 +40,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('30 atoms for 3 players is refused', err.includes('72'), err);
   check('the refused start leaves the host in the lobby', await host.isVisible('#view-lobby'));
   check('the refused start leaves the others in the lobby', await p2.isVisible('#view-lobby'));
+  await host.fill('#set-atoms', '12');
+  check('changing the number takes the complaint back',
+    (await host.$$('#lobby-note.error')).length === 0);
 
   // --- ordering -----------------------------------------------------------
   await host.click('#roster li:nth-child(3) button.move >> nth=0');

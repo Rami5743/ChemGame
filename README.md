@@ -3,7 +3,8 @@
 An online version of the Atoms & Molecules card game: a static page with no
 server code of its own. Open it, start a game, send the link to the people you
 want to play with. It is played in Hebrew or in English — the two flags in the
-header switch between them, and each player keeps his own choice, so the link
+header switch between them at any moment, in the middle of a game as well,
+without reloading anything, and each player keeps his own choice, so the link
 carries no language.
 
 Live at https://rami5743.github.io/ChemGame/
@@ -41,8 +42,14 @@ their summed atomic number, and that group is fixed the moment it is laid. The
 alkanes card asks how many carbons it stands for.
 
 Finishing a molecule lets every player who contributed to it take back one of
-the atoms he laid — never a fusion card — and the one who finished it then
-either starts a new molecule or draws five cards of one kind and keeps one.
+the atoms he laid, and the one who finished it then either starts a new
+molecule or draws five cards of one kind and keeps one. A fused group is never
+taken apart: neither the fusion card nor an atom that went into it.
+
+The move a turn is for is already under way when the turn opens, so a card can
+simply be clicked: a molecule when one has to be opened, an atom while one is
+being built. The other moves are on the bar beside it, and a fusion is the one
+thing that waits for a confirmation.
 
 When a game is won, the host can deal again to the same players, changing the
 two sizes first.
@@ -74,6 +81,15 @@ A player subscribes to `p/<its own id>` and to no other, which is how a hand
 stays out of the other players' pages. The host resends its snapshot every ten
 seconds whether or not it changed, so the others can tell a quiet host from one
 who has closed the page.
+
+Everybody, host and player alike, holds a connection to every broker it can
+reach and repeats everything on all of them, so the two need only one broker in
+common — the point of several, since a network that closes one port closes the
+game. No broker is ever given up on: a connection that failed keeps trying, so
+a phone that was out of reach walks back in without a reload. What that costs
+is that the same message arrives more than once; a snapshot is told by its
+revision number and a move by the mark it carries, and the second copy of
+either is dropped.
 
 | file               | contents                                              |
 | ------------------ | ----------------------------------------------------- |

@@ -85,11 +85,37 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     }
   }
 
-  // --- the flag switches back ----------------------------------------------
-  await host.click('.flag[data-lang="he"]');
-  await host.waitForFunction(() => document.documentElement.dir === 'rtl', null, { timeout: 15000 });
-  check('the Hebrew flag puts the page back into Hebrew', true);
-  check('and the room is still the same', (await host.evaluate(() => location.hash)).includes(room));
+  // --- the flag switches back, in the middle of the game -------------------
+  {
+    const before = await readState(host);
+    const hand = (await readCards(host)).atoms.map((c) => c.id).sort();
+
+    await host.click('.flag[data-lang="he"]');
+    await host.waitForFunction(() => document.documentElement.dir === 'rtl', null, { timeout: 15000 });
+    check('the Hebrew flag puts the page back into Hebrew', true);
+    check('and the room is still the same', (await host.evaluate(() => location.hash)).includes(room));
+    check('the language is remembered in the address',
+      (await host.evaluate(() => location.search)).includes('lang=he'));
+
+    // The host carries the game. A switch that reloaded the page would end it.
+    check('the game is still on the screen', await host.isVisible('#view-game'));
+    const after = await readState(host);
+    check('the same game, at the same point', after.rev >= before.rev && !after.game.winner);
+    check('the hand did not change hands',
+      (await readCards(host)).atoms.map((c) => c.id).sort().join() === hand.join());
+    check('the cards turned over to the Hebrew faces',
+      (await host.$$eval('#hand-atoms img', (n) => n.map((i) => i.getAttribute('src'))))
+        .every((s) => s.startsWith('assets/cards/he/')));
+    check('the headings turned with them',
+      (await host.textContent('#view-game h3')) === 'סדר השחקנים');
+
+    // The other player was not switched with him.
+    check('the other player is still in English',
+      (await guest.evaluate(() => document.documentElement.dir)) === 'ltr');
+    check('and the English cards stayed his',
+      (await guest.$$eval('#hand-atoms img', (n) => n.map((i) => i.getAttribute('src'))))
+        .every((s) => s.startsWith('assets/cards/en/')));
+  }
 
   for (const p of [host, guest]) await p.context().close();
 }

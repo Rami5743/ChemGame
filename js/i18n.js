@@ -1,6 +1,7 @@
 // Every word the game says, in both languages. The chosen language lives in
-// ?lang= and in localStorage; switching reloads the page, which keeps the room
-// in the fragment.
+// ?lang= and in localStorage. Switching does not reload the page: the words
+// are replaced where they stand, so a game going on goes on — a reload would
+// cost the host his game.
 
 export const LANGS = ['he', 'en'];
 export const DIR = { he: 'rtl', en: 'ltr' };
@@ -18,12 +19,19 @@ export function storedLang() {
 let LANG = storedLang();
 export const lang = () => LANG;
 
+// Whoever has words on the screen says so here, and is called after a switch.
+const watchers = new Set();
+export const onLang = (fn) => watchers.add(fn);
+
 export function setLang(next) {
   if (!LANGS.includes(next) || next === LANG) return;
+  LANG = next;
   try { localStorage.setItem('cg_lang', next); } catch { /* ignore */ }
   const url = new URL(location.href);
   url.searchParams.set('lang', next);
-  location.href = url.toString();
+  history.replaceState(null, '', url);
+  applyStaticWords();
+  for (const fn of watchers) fn(next);
 }
 
 const WORDS = {

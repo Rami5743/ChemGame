@@ -154,10 +154,39 @@ export default async function run({ check }) {
     const back = apply(s, 'a', { t: 'takeBack', card: h1.id });
     check('taking one card back is allowed', back.ok, back.error);
     check('the card is back in the hand', s.hands.a.atoms.some((c) => c.id === h1.id));
+    check('and nothing of it is left on the table',
+      !s.area.units.some((u) => !u.cards.length));
     check('the table is cleared', s.area.molecule === null && s.area.units.length === 0);
     check('the molecule card went to its discard', s.molDiscard.length === 1);
     check('the remaining atoms went to their discard', s.atomDiscard.length === 2, s.atomDiscard.length);
     check('the finisher opens the next molecule', s.phase === 'opening' && s.seats[s.turn] === 'a');
+  }
+
+  {
+    // Three players, so the table is still standing when the first of them
+    // takes his card back: the spot it left must be empty, not a card with
+    // nothing on it.
+    const h1 = atom('H'), h2 = atom('H'), o = atom('O'), w = mol('water');
+    const s = table({
+      seats: ['a', 'b', 'c'],
+      hands: {
+        a: hand([h1, atom('N')], [w]),
+        b: hand([h2, atom('N')], []),
+        c: hand([o, atom('N')], []),
+      },
+    });
+    apply(s, 'a', { t: 'startMolecule', molecule: w.id, cards: [h1.id] });
+    apply(s, 'b', { t: 'placeUnit', cards: [h2.id] });
+    apply(s, 'c', { t: 'placeUnit', cards: [o.id] });
+    check('all three are asked', s.phase === 'takeback' && s.takeback.pending.length === 3,
+      JSON.stringify(s.takeback));
+    const r = apply(s, 'a', { t: 'takeBack', card: h1.id });
+    check('the first of them takes his atom back', r.ok, r.error);
+    check('the others are still being asked', s.phase === 'takeback');
+    check('the atom is gone from the table',
+      !s.area.units.some((u) => u.cards.some((c) => c.id === h1.id)));
+    check('and left no empty place behind it',
+      s.area.units.length === 2 && s.area.units.every((u) => u.cards.length === 1));
   }
 
   {
@@ -183,7 +212,12 @@ export default async function run({ check }) {
     apply(s, 'b', { t: 'placeUnit', cards: [o.id] });
     check('the molecule completed on the oxygen', s.phase === 'takeback', s.phase);
     check('a fusion card may not be taken back', !apply(s, 'a', { t: 'takeBack', card: f.id }).ok);
-    check('the hydrogen fused with it may be', apply(s, 'a', { t: 'takeBack', card: h1.id }).ok);
+    // The group was laid as one atom, so it is not taken apart either.
+    check('neither may an atom that went into the fusion',
+      !apply(s, 'a', { t: 'takeBack', card: h1.id }).ok);
+    check('the fused group is still whole on the table',
+      s.area.units.some((u) => u.cards.length === 2 && u.el === 'H'));
+    check('declining is allowed all the same', apply(s, 'a', { t: 'takeBack', card: null }).ok);
   }
 
   /* ---------- swapping the molecule ---------- */

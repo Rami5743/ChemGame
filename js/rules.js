@@ -379,9 +379,12 @@ function applyTakeBack(state, playerId, move) {
       (u) => u.by === playerId && u.cards.some((c) => c.id === move.card)
     );
     if (!unit) return fail('notYourPlacedCard');
-    const card = unit.cards.find((c) => c.id === move.card);
+    // A fusion was laid as one atom and is never taken apart, neither the
+    // fusion card itself nor an atom that went into it.
+    if (unit.cards.length > 1) return fail('cannotTakeBackFusion');
+    const card = unit.cards[0];
     if (card.el === FUSION) return fail('cannotTakeBackFusion');
-    unit.cards.splice(unit.cards.indexOf(card), 1);
+    state.area.units = state.area.units.filter((u) => u !== unit);
     state.hands[playerId].atoms.push(card);
   }
   state.takeback.pending = pending.filter((id) => id !== playerId);

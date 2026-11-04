@@ -8,7 +8,9 @@ export async function openPlayer({ browser, url, name, consoleErrors, label }) {
   await page.goto(url);
   if (name) await page.fill('#name-input', name);
   await page.click('#name-go');
-  await page.waitForSelector('#view-lobby:not(.hidden)');
+  // A latecomer to a locked room is moved on to the game screen the moment
+  // the host is heard from, which can be before this is even asked.
+  await page.waitForSelector('#view-lobby:not(.hidden), #view-game:not(.hidden)');
   return page;
 }
 

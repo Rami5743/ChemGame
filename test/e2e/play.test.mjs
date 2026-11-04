@@ -94,8 +94,14 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
 
   /* ---------- a move is chosen before its cards ---------- */
   {
-    check('before a move is chosen, no card can be picked up',
-      (await host.$$('.cardbtn.pickable')).length === 0);
+    check('the game opens with opening a molecule already under way',
+      await host.isVisible(`${action('open')}.active`));
+    check('so the molecules can be clicked straight away',
+      (await host.$$('#hand-mols .cardbtn.pickable')).length > 0 &&
+      (await host.$$('#hand-atoms .cardbtn.pickable')).length === 0);
+    check('and the two ways of drawing are still offered',
+      (await host.$$(action('fiveMolecules'))).length === 1 &&
+      (await host.$$(action('fiveAtoms'))).length === 1);
 
     check('the button that opens a molecule is named for what it does',
       (await host.textContent(action('open'))) === 'פתח מולקולה');
@@ -125,6 +131,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     await host.click(action('cancel'));
     check('cancelling drops the whole move', (await host.$$('.cardbtn.chosen')).length === 0);
     check('and the buttons come back', await host.isVisible(action('open')));
+    check('with opening a molecule under way again',
+      await host.isVisible(`${action('open')}.active`));
   }
   check('the player who is not in turn has no buttons',
     (await guest.$$('#actions button')).length === 0);
@@ -159,6 +167,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   let sawShape = false;
   let sawFusionPrompt = false;
   let sawOneClickPlace = false;
+  let sawOneClickOpen = false;
+  let lastErr = '';
 
   while (moves < 300) {
     const state = await readState(host);
@@ -198,17 +208,40 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       }
     }
 
-    // Take a card back by clicking it, the first time that is possible.
+    // Take a card back by clicking it, the first time that is possible. It
+    // has to be an atom laid on its own: an atom inside a fusion is part of
+    // the pile, and a fusion is never taken back.
     let move = null;
     if (g.phase === 'takeback' && !tookBack) {
-      const mine = g.area.units.find((u) => u.by === actor && u.cards.some((c) => c.el !== FUSION));
-      if (mine) {
-        move = { t: 'takeBack', card: mine.cards.find((c) => c.el !== FUSION).id };
-        tookBack = true;
+      const mine = g.area.units.find(
+        (u) => u.by === actor && u.cards.length === 1 && u.cards[0].el !== FUSION
+      );
+      if (mine) move = { t: 'takeBack', card: mine.cards[0].id };
+    }
+
+    // Once, open a molecule without pressing a button first: at this point
+    // that move is already the one under way.
+    if (!sawOneClickOpen && g.phase === 'opening' && !move) {
+      const direct = candidates(state, cards).find(
+        (m) => m.t === 'startMolecule' && m.cards.length === 1 && m.alkaneN === undefined
+      );
+      if (direct) {
+        await page.click(card('#hand-mols', direct.molecule));
+        await page.click(card('#hand-atoms', direct.cards[0]));
+        try {
+          await waitRev(state.rev);
+          sawOneClickOpen = true;
+          moves += 1;
+          continue;
+        } catch {
+          await giveUp(page);
+        }
       }
     }
 
-    const tries = move ? [move] : candidates(state, cards);
+    // Whatever was singled out is tried first, with the ordinary moves behind
+    // it, so one move that cannot be clicked does not end the game.
+    const tries = move ? [move, ...candidates(state, cards)] : candidates(state, cards);
     let acted = false;
     for (const m of tries) {
       // The first fusion of the game: look at what choosing the card does
@@ -233,23 +266,29 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       }
       try {
         await clickMove(page, m);
-      } catch {
+      } catch (e) {
+        lastErr = 'click: ' + String(e.message).split('\n')[0];
         await giveUp(page);
         continue;
       }
       try {
         await waitRev(state.rev);
         acted = true;
-      } catch {
+      } catch (e) {
+        lastErr = 'wait: ' + String(e.message).split('\n')[0];
         await giveUp(page);
         continue;
       }
+      if (m === move) tookBack = true;
       if (m.cards && m.cards.length > 1) sawFused = true;
       if (m.t === 'placeUnit' && m.cards.length === 1) sawOneClickPlace = true;
       break;
     }
     moves += 1;
-    if (!acted) { stuck = `stuck in ${g.phase} after ${moves} moves`; break; }
+    if (!acted) {
+      stuck = `stuck in ${g.phase} after ${moves} moves (${lastErr})`;
+      break;
+    }
   }
 
   const final = await readState(host);
@@ -261,6 +300,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('a card was taken back by clicking it', tookBack);
   check('the alkane declaration appears when that card is chosen', sawAlkaneField);
   check('the table showed the shape of the molecule, with the spots still missing', sawShape);
+  check('a molecule opened by one click, with no button pressed first', sawOneClickOpen);
 
   for (const p of [host, guest]) {
     await p.waitForFunction(() => !!window.chemgame.state()?.game?.winner, null, { timeout: 15000 });

@@ -1,5 +1,5 @@
 import { createBus, brokerList } from './net.js';
-import { t, lang, setLang, applyStaticWords } from './i18n.js';
+import { t, lang, setLang, onLang, applyStaticWords } from './i18n.js';
 import { newGame, apply, publicView, privateView } from './rules.js';
 import { layoutFor } from './layouts.js';
 import {
@@ -21,7 +21,8 @@ const DECK_SIZE = { atoms: 72, molecules: 36 };
 const HEARTBEAT_MS = 4000;
 const OFFLINE_MS = 12000;
 const STALE_MS = 20000;
-const NO_HOST_MS = 9000;
+const NO_HOST_MS = 15000;
+const PATIENCE_MS = 9000;
 
 const me = { id: clientId(), name: '' };
 let room = roomFromHash();
@@ -33,7 +34,12 @@ let host = null; // host-only bookkeeping
 let lastStateAt = 0;
 let moveSeq = 0;
 const awaitingMove = new Map();
+// This page load, told apart from any other, so that two copies of one move
+// can be told apart from two moves.
+const TAB = Math.random().toString(36).slice(2, 10);
 let noHostTimer = null;
+let noHostShown = false;
+let lastHandSig = '';
 
 const seatName = (n) => t('seat.name', { n });
 
@@ -81,6 +87,14 @@ $('status').addEventListener('click', toggleLinks);
 
 /* ---------- entry screen ---------- */
 
+// The two words of the entry screen that depend on whether this tab opened
+// the game or was invited to it.
+function paintEntryWords() {
+  const joining = !!room;
+  $('name-title').textContent = t(joining ? 'entry.joinTitle' : 'entry.newTitle');
+  $('name-go').textContent = t(joining ? 'entry.join' : 'entry.create');
+}
+
 function initEntry() {
   const joining = !!room;
 
@@ -92,8 +106,7 @@ function initEntry() {
     return;
   }
 
-  $('name-title').textContent = t(joining ? 'entry.joinTitle' : 'entry.newTitle');
-  $('name-go').textContent = t(joining ? 'entry.join' : 'entry.create');
+  paintEntryWords();
   $('name-input').value = localStorage.getItem('cg_name') || '';
   $('name-fresh').classList.toggle('hidden', !joining);
   $('name-fresh').addEventListener('click', () => {
@@ -123,9 +136,10 @@ function enter() {
 
 /* ---------- connection ---------- */
 
-// The host holds a connection to every broker it can reach and repeats
-// everything on all of them, so a player needs only one broker in common with
-// the host, not the same one.
+// Host and player alike hold a connection to every broker they can reach and
+// repeat everything on all of them, so the two need only one broker in common,
+// not the same one. A move that reaches the host twice is counted once, by the
+// mark it carries.
 function hostFanout(urls) {
   const live = [];
   const up = new Set();
@@ -168,27 +182,28 @@ function hostFanout(urls) {
   };
 }
 
-// A player takes the first broker it can reach, trying them in turn.
+// A player holds them all too, and sends on every one that is up: the host may
+// be listening on a different one from the one the state came in on.
 function playerRelay(urls) {
-  const relay = {
-    active: null,
-    act: (o) => relay.active && relay.active.act(o),
-    state: () => {},
-    toPlayer: () => {},
-    clearPlayer: () => {},
-    clearState: () => {},
-    stop: () => relay.active && relay.active.stop(),
-  };
-  let i = 0;
-  const tryNext = () => {
-    if (i >= urls.length) {
-      noBroker();
-      return;
+  const buses = [];
+  const live = new Set();
+  const each = (fn) => {
+    for (const b of buses) {
+      if (!live.has(b)) continue;
+      try { fn(b); } catch { /* a broker that is down must not stop the rest */ }
     }
-    const url = urls[i++];
-    let settled = false;
-    let dropped = false;
-    let timer = null;
+  };
+
+  for (const url of urls) {
+    // A broker is never dropped, but one that has not answered in time is
+    // named as such in the diagnostic, so the list says what is going on.
+    let answered = false;
+    let patience = true;
+    setTimeout(() => {
+      patience = false;
+      if (!answered) noteLink(url, 'dead');
+    }, PATIENCE_MS);
+
     const b = createBus({
       url,
       room,
@@ -196,31 +211,38 @@ function playerRelay(urls) {
       isHost: false,
       onMessage,
       onStatus: (state) => {
-        if (dropped) return; // it was given up on; its later noise is not news
-        noteLink(url, state);
-        if (state === 'on' && !settled) {
-          settled = true;
-          clearTimeout(timer);
-          relay.active = b;
-          setStatus('on');
-          $('status').title = url;
-          relay.act({ t: 'hello', id: me.id, name: me.name });
-        } else if (settled) {
-          setStatus(state);
+        if (state === 'on') answered = true;
+        noteLink(url, !answered && !patience ? 'dead' : state);
+        const had = live.size;
+        if (state === 'on') live.add(b);
+        else live.delete(b);
+        setStatus(live.size ? 'on' : state === 'err' ? 'err' : 'wait');
+        $('status').title = live.size
+          ? [...live].map((x) => x.url).join('\n')
+          : t('links.none');
+        if (state === 'on') {
+          b.act({ t: 'hello', id: me.id, name: me.name });
+          // Back in touch: whatever was said about being cut off is over,
+          // unless the list of brokers is what is on the screen.
+          if (!had && !linksOpen) $('alert').classList.add('hidden');
         }
       },
     });
-    timer = setTimeout(() => {
-      if (!settled) {
-        dropped = true;
-        noteLink(url, 'dead');
-        b.stop();
-        tryNext();
-      }
-    }, 9000);
+    buses.push(b);
+  }
+
+  // None is ever given up on: the connection keeps trying by itself, so a
+  // phone that was out of reach walks back in without a reload.
+  setTimeout(() => { if (!live.size) noBroker(); }, 22000);
+
+  return {
+    act: (o) => each((b) => b.act(o)),
+    state: () => {},
+    toPlayer: () => {},
+    clearPlayer: () => {},
+    clearState: () => {},
+    stop: () => { for (const b of buses) b.stop(); },
   };
-  tryNext();
-  return relay;
 }
 
 /* ---------- which brokers answered ---------- */
@@ -284,6 +306,7 @@ function connect() {
       game: null,
       rev: 0,
       lastSig: '',
+      done: new Set(),
     };
     bus = hostFanout(brokerList());
     let tick = 0;
@@ -308,8 +331,8 @@ function connect() {
     }, 4000);
     noHostTimer = setTimeout(() => {
       if (!snapshot) {
-        $('lobby-note').textContent = t('lobby.noHost');
-        $('lobby-note').classList.add('error');
+        noHostShown = true;
+        lobbyError(t('lobby.noHost'));
       }
     }, NO_HOST_MS);
     window.addEventListener('pagehide', () => bus.act({ t: 'bye', id: me.id }));
@@ -328,6 +351,8 @@ function connect() {
   for (const id of ['set-atoms', 'set-mols']) {
     $(id).addEventListener('input', () => {
       if (!host || host.locked) return;
+      // A deal that was refused is no longer the deal on the screen.
+      $('lobby-note').classList.remove('error');
       const { deal } = readDeal(host.order.length);
       if (deal) {
         host.deal = deal;
@@ -357,21 +382,35 @@ function copyLink() {
 function onMessage(sub, msg) {
   if (sub === 'state') {
     lastStateAt = Date.now();
-    const grew = !snapshot || msg.rev > snapshot.rev;
-    snapshot = msg;
-    if (grew) {
-      for (const [seq, resolve] of awaitingMove) {
-        awaitingMove.delete(seq);
-        resolve(null);
-      }
-    }
     if (noHostTimer) {
       clearTimeout(noHostTimer);
       noHostTimer = null;
     }
+    // A slow phone can be told there is no host and then hear from him all
+    // the same. The word stands only as long as it is true.
+    let repaint = false;
+    if (noHostShown) {
+      noHostShown = false;
+      $('lobby-note').classList.remove('error');
+      repaint = true;
+    }
+    // Every broker the two share carries the same snapshot. A copy that is
+    // not newer than the one on the screen is one copy too many.
+    if (snapshot && msg.rev <= snapshot.rev) {
+      if (repaint) render();
+      return;
+    }
+    snapshot = msg;
+    for (const [seq, resolve] of awaitingMove) {
+      awaitingMove.delete(seq);
+      resolve(null);
+    }
     render();
   } else if (sub === `p/${me.id}`) {
     if (msg.t === 'hand') {
+      const sig = JSON.stringify(msg);
+      if (sig === lastHandSig) return;
+      lastHandSig = sig;
       myCards = msg;
       render();
     } else if (msg.t === 'rejected') {
@@ -464,6 +503,13 @@ function onAct(msg) {
     const p = host.players.get(msg.id);
     if (!p) return;
     p.last = Date.now();
+    // The same move arrives on every broker the two share. Its mark is what
+    // tells a second copy from a second move.
+    if (msg.mid) {
+      if (host.done.has(msg.mid)) return;
+      host.done.add(msg.mid);
+      if (host.done.size > 400) host.done.delete(host.done.values().next().value);
+    }
     const r = apply(host.game, msg.id, msg.move || {});
     if (!r.ok) {
       bus.toPlayer(msg.id, { t: 'rejected', seq: msg.seq, error: r.error, z: r.z, el: r.el }, false);
@@ -590,7 +636,7 @@ function sendMove(move) {
       if (awaitingMove.delete(seq)) resolve(t('move.noAnswer'));
     }, 8000);
   });
-  const msg = { t: 'move', id: me.id, seq, move };
+  const msg = { t: 'move', id: me.id, seq, mid: `${TAB}-${seq}`, move };
   if (host) onAct(msg);
   else bus.act(msg);
   return answer;
@@ -810,10 +856,12 @@ function renderGame() {
   const waiting = g.phase === 'takeback' ? g.takeback.pending : [snapshot.turn];
   const myMove = inGame && !g.winner && waiting.includes(me.id);
 
-  // While a molecule is being built, laying an atom is what a turn is for, so
-  // that move is already under way and a card can simply be clicked.
+  // The move a turn is for is already under way, so a card can simply be
+  // clicked: an atom while a molecule is being built, and a molecule at the
+  // start of the game and after one was completed.
   if (!myMove) clearChoice();
-  else if (g.phase === 'building' && !chosen.mode) chosen.mode = 'place';
+  else if (!chosen.mode && g.phase === 'building') chosen.mode = 'place';
+  else if (!chosen.mode && g.phase === 'opening') chosen.mode = 'open';
 
   renderBanner(g, inGame, waiting);
   renderSeats(g, waiting);
@@ -914,11 +962,13 @@ function renderTable(g, myMove) {
 }
 
 // A fused group lies on the table as a pile: only the fusion card shows, and
-// what the fusion came to is written above it. It opens out only for the one
-// moment its owner may take a card back out of it.
+// what the fusion came to is written above it. It is never opened out, since
+// it is one atom as far as the game is concerned.
 function unitEl(u, takingBack) {
   const fused = u.cards.length > 1;
-  const mineNow = takingBack && u.by === me.id;
+  // A fusion is laid as one atom and is never taken apart, so only an atom
+  // lying on its own can be clicked back into its owner's hand.
+  const mineNow = takingBack && u.by === me.id && !fused;
   const wrap = document.createElement('div');
   wrap.className = 'unit' + (fused ? ' fused' : '');
 
@@ -941,14 +991,6 @@ function unitEl(u, takingBack) {
   label.className = 'sum';
   label.textContent = `${nameIn(ELEMENTS[u.el], lang())} ${ELEMENTS[u.el].z}`;
   wrap.append(label);
-
-  if (mineNow) {
-    const spread = document.createElement('div');
-    spread.className = 'spread';
-    for (const c of u.cards) spread.append(cardFor(c));
-    wrap.append(spread);
-    return wrap;
-  }
 
   const stack = document.createElement('div');
   stack.className = 'stack';
@@ -1106,12 +1148,15 @@ function renderActions(g, myMove) {
   if (!myMove || g.phase === 'picking') return;
 
   if (g.phase === 'opening') {
-    if (chosen.mode === 'open') {
+    // Opening a molecule is the move under way, but the two ways of drawing
+    // stay on the bar until a molecule is actually chosen.
+    if (chosen.mode === 'open' && chosen.molecule) {
       renderModeBar(bar);
       return;
     }
     bar.append(
-      button(t('act.open'), 'open', () => setMode('open')),
+      button(t('act.open'), 'open', () => setMode('open'), true,
+        chosen.mode === 'open' ? 'active' : ''),
       button(t('act.fiveMolecules'), 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
       button(t('act.fiveAtoms'), 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
     );
@@ -1218,13 +1263,31 @@ function updateDocLinks() {
   }
 }
 
+function markFlags() {
+  for (const b of document.querySelectorAll('.flag')) {
+    b.classList.toggle('active', b.dataset.lang === lang());
+  }
+}
+
 function initLanguage() {
   applyStaticWords();
   updateDocLinks();
+  markFlags();
   for (const b of document.querySelectorAll('.flag')) {
-    b.classList.toggle('active', b.dataset.lang === lang());
     b.addEventListener('click', () => setLang(b.dataset.lang));
   }
+  // A switch in the middle of a game repaints the page and leaves the game
+  // where it was: the room, the hand and the host's bookkeeping all stay.
+  onLang(() => {
+    markFlags();
+    updateDocLinks();
+    paintEntryWords();
+    if (noHostShown) lobbyError(t('lobby.noHost'));
+    else if (!snapshot) $('lobby-note').textContent = t('lobby.connecting');
+    setStatus($('status').dataset.state || 'wait');
+    $('share').value = shareLink();
+    render();
+  });
 }
 
 initLanguage();
