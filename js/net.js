@@ -6,26 +6,37 @@
 //   act        player -> host, actions (hello, play, bye)
 //   p/<id>     host -> one player, retained, that player's own hand
 //
-// ?broker=wss://host:port/path overrides the default, for a self-hosted broker.
+// ?broker=wss://host:port/path overrides the list, for a self-hosted broker.
+//
+// Several public brokers, because a network that blocks one of these ports
+// blocks the game. The host holds a connection to every broker it can reach
+// and repeats everything on all of them, so a player needs only one broker in
+// common with the host. The first in the list listens on 443, which is the
+// port a restrictive network is least likely to close.
 
-const DEFAULT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+export const BROKERS = [
+  'wss://mqtt.eclipseprojects.io/mqtt',
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://test.mosquitto.org:8081/mqtt',
+];
 
-export function brokerUrl() {
-  const p = new URLSearchParams(location.search);
-  return p.get('broker') || DEFAULT_BROKER;
+export function brokerList() {
+  const chosen = new URLSearchParams(location.search).get('broker');
+  return chosen ? [chosen] : BROKERS;
 }
 
-export function createBus({ room, clientId, isHost, onMessage, onStatus }) {
+export function createBus({ url, room, clientId, isHost, onMessage, onStatus }) {
   const base = `chemgame/1/${room}`;
   const topics = [`${base}/state`, `${base}/p/${clientId}`];
   if (isHost) topics.push(`${base}/act`);
 
-  const client = mqtt.connect(brokerUrl(), {
+  const client = mqtt.connect(url, {
     clientId: `cg_${clientId}_${Math.random().toString(36).slice(2, 8)}`,
     clean: true,
     keepalive: 30,
-    reconnectPeriod: 2000,
-    connectTimeout: 12000,
+    reconnectPeriod: 4000,
+    connectTimeout: 8000,
   });
 
   client.on('connect', () => {
@@ -53,6 +64,7 @@ export function createBus({ room, clientId, isHost, onMessage, onStatus }) {
     client.publish(`${base}/${sub}`, JSON.stringify(obj), { qos: 0, retain: !!retain });
 
   return {
+    url,
     act: (obj) => pub('act', obj, false),
     state: (obj) => pub('state', obj, true),
     toPlayer: (id, obj, retain = true) => pub(`p/${id}`, obj, retain),

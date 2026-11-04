@@ -1,4 +1,4 @@
-import { createBus } from './net.js';
+import { createBus, brokerList } from './net.js';
 import { newGame, apply, publicView, privateView } from './rules.js';
 import { layoutFor } from './layouts.js';
 import {
@@ -114,16 +114,110 @@ function enter() {
 
 /* ---------- connection ---------- */
 
+// The host holds a connection to every broker it can reach and repeats
+// everything on all of them, so a player needs only one broker in common with
+// the host, not the same one.
+function hostFanout(urls) {
+  const live = [];
+  const up = new Set();
+  const each = (fn) => {
+    for (const b of live) {
+      try { fn(b); } catch { /* a broker that is down must not stop the rest */ }
+    }
+  };
+  for (const url of urls) {
+    live.push(createBus({
+      url,
+      room,
+      clientId: me.id,
+      isHost: true,
+      onMessage,
+      onStatus: (state) => {
+        if (state === 'on') {
+          if (!up.has(url)) {
+            up.add(url);
+            // A broker that joins late has none of the retained messages yet.
+            setTimeout(() => { sendHands(); publishState(true); }, 0);
+          }
+        } else {
+          up.delete(url);
+        }
+        setStatus(up.size ? 'on' : 'wait');
+        $('status').title = up.size ? [...up].join('\n') : 'אין חיבור לאף שרת הודעות';
+      },
+    }));
+  }
+  setTimeout(() => { if (!up.size) noBroker(); }, 22000);
+  return {
+    act: (o) => each((b) => b.act(o)),
+    state: (o) => each((b) => b.state(o)),
+    toPlayer: (id, o, r) => each((b) => b.toPlayer(id, o, r)),
+    clearPlayer: (id) => each((b) => b.clearPlayer(id)),
+    clearState: () => each((b) => b.clearState()),
+    stop: () => each((b) => b.stop()),
+  };
+}
+
+// A player takes the first broker it can reach, trying them in turn.
+function playerRelay(urls) {
+  const relay = {
+    active: null,
+    act: (o) => relay.active && relay.active.act(o),
+    state: () => {},
+    toPlayer: () => {},
+    clearPlayer: () => {},
+    clearState: () => {},
+    stop: () => relay.active && relay.active.stop(),
+  };
+  let i = 0;
+  const tryNext = () => {
+    if (i >= urls.length) {
+      noBroker();
+      return;
+    }
+    const url = urls[i++];
+    let settled = false;
+    let timer = null;
+    const b = createBus({
+      url,
+      room,
+      clientId: me.id,
+      isHost: false,
+      onMessage,
+      onStatus: (state) => {
+        if (state === 'on' && !settled) {
+          settled = true;
+          clearTimeout(timer);
+          relay.active = b;
+          setStatus('on');
+          $('status').title = url;
+          relay.act({ t: 'hello', id: me.id, name: me.name });
+        } else if (settled) {
+          setStatus(state);
+        }
+      },
+    });
+    timer = setTimeout(() => {
+      if (!settled) {
+        b.stop();
+        tryNext();
+      }
+    }, 9000);
+  };
+  tryNext();
+  return relay;
+}
+
+function noBroker() {
+  setStatus('err');
+  $('alert').classList.remove('hidden');
+  $('alert').textContent =
+    'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת. יש רשתות שחוסמות את החיבור. ' +
+    'נסה רשת אחרת, למשל לעבור מרשת סלולרית לרשת אלחוטית או להפך.';
+}
+
 function connect() {
   setStatus('wait');
-  bus = createBus({
-    room,
-    clientId: me.id,
-    isHost,
-    onStatus: setStatus,
-    onMessage: onMessage,
-  });
-
   if (!isHost) sessionStorage.setItem('cg_room', room);
 
   if (isHost) {
@@ -137,6 +231,7 @@ function connect() {
       rev: 0,
       lastSig: '',
     };
+    bus = hostFanout(brokerList());
     let tick = 0;
     setInterval(() => {
       host.players.get(me.id).last = Date.now();
@@ -147,9 +242,8 @@ function connect() {
     }, 2000);
     publishState();
   } else {
-    const beat = () => bus.act({ t: 'hello', id: me.id, name: me.name });
-    beat();
-    setInterval(beat, HEARTBEAT_MS);
+    bus = playerRelay(brokerList());
+    setInterval(() => bus.act({ t: 'hello', id: me.id, name: me.name }), HEARTBEAT_MS);
     setInterval(() => {
       const stale = lastStateAt && Date.now() - lastStateAt > STALE_MS;
       $('alert').classList.toggle('hidden', !stale);
@@ -280,6 +374,7 @@ function publishState(force) {
 
 // Each player is told his own cards and nothing else.
 function sendHands() {
+  if (!host || !host.game) return;
   for (const id of host.order) {
     bus.toPlayer(id, { t: 'hand', ...privateView(host.game, id) });
   }
