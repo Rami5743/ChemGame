@@ -43,12 +43,21 @@ export default async function run({ check }) {
   check('the rules page is there', rules > 0);
 
   const text = rules > 0 ? await readFile(join(root, 'rules.html'), 'utf8') : '';
-  for (const heading of ['מטרת המשחק', 'מהלך המשחק', 'קלף היתוך גרעיני', 'קלף אלקאנים', 'גרסאות משחק נוספות']) {
+  for (const heading of ['מטרת המשחק', 'מהלך המשחק', 'קלף היתוך גרעיני', 'קלף אלקאנים', 'טיפ']) {
     check(`the rules page carries the section ${heading}`, text.includes(heading));
   }
   check('the rules page shows the cards it talks about',
     (text.match(/assets\/cards\/he\//g) || []).length >= 10);
   check('the rules page leads back to the game', text.includes('href="./"'));
+
+  for (const art of ['glycine', 'atom']) {
+    let size = -1;
+    try { size = await sizeOf(`assets/booklet/${art}.webp`); } catch {}
+    check(`the booklet illustration ${art} is there`, size > 0);
+    check(`the rules page opens or closes with ${art}`, text.includes(`assets/booklet/${art}.webp`));
+  }
+  check('the cards in the examples keep their own black frames',
+    !/examples\.(ok|bad)[^}]*border-color/.test(await readFile(join(root, 'css/rules.css'), 'utf8')));
 
   let facts = -1;
   try { facts = await sizeOf('facts.html'); } catch {}

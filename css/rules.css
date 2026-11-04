@@ -102,9 +102,14 @@ li { margin: 6px 0; }
 }
 .also { margin: 8px 0; font-weight: 600; }
 
-.examples.ok .row img { border-color: #1d6b32; }
-.examples.bad .row img { border-color: #9c2b24; }
-.examples.bad .row { position: relative; }
+
+/* The two illustrations of the printed booklet, lifted off their wash. */
+.booklet-art {
+  display: block;
+  margin: 20px auto;
+  width: min(300px, 72%);
+  height: auto;
+}
 
 /* One card beside what is said about it. */
 .fact {
