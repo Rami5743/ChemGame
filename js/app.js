@@ -501,13 +501,16 @@ const STEP_PROMPT = {
     open: 'בחר מהיד את קלף המולקולה שתרצה לפתוח בה.',
     swap: 'בחר מהיד את קלף המולקולה שיחליף את זו שעל השולחן.',
   },
-  atoms: 'תורך. בחר קלף אטום והנח אותו. להיתוך גרעיני, בחר את קלף ההיתוך ואת האטומים שמתאחים איתו.',
+  atoms: 'בחר קלף אטום להנחה. להיתוך גרעיני, בחר את קלף ההיתוך ואת האטומים שמתאחים איתו.',
+  place: 'תורך. בחר קלף אטום והוא יונח.',
+  fusing: 'בחר קלפי אטומים להיתוך.',
   table: 'בחר אטום שהנחת בעצמך, כדי לקחת אותו בחזרה.',
 };
 
 function stepPrompt() {
   const step = currentStep();
   if (step === 'molecule') return STEP_PROMPT.molecule[chosen.mode];
+  if (chosen.mode === 'place') return STEP_PROMPT[fusionChosen() ? 'fusing' : 'place'];
   if (step) return STEP_PROMPT[step];
   return null;
 }
@@ -553,14 +556,20 @@ const atomCard = (el, opts = {}) =>
 const moleculeCard = (id, opts = {}) =>
   cardButton({ src: cardArt.molecule(id), alt: MOLECULES[id].name, ...opts });
 
-function button(label, act, onClick, enabled = true) {
+function button(label, act, onClick, enabled = true, cls = '') {
   const b = document.createElement('button');
   b.type = 'button';
   b.textContent = label;
   b.dataset.act = act;
+  if (cls) b.className = cls;
   b.disabled = !enabled;
   if (enabled) b.addEventListener('click', onClick);
   return b;
+}
+
+// A fusion is under way as soon as the fusion card itself is picked up.
+function fusionChosen() {
+  return (myCards?.atoms || []).some((c) => c.el === FUSION && chosen.atoms.has(c.id));
 }
 
 const alkaneLabel = (n) => `C${n}H${2 * n + 2}`;
@@ -880,11 +889,7 @@ function renderHand(g, myMove) {
         pickable: atomTurn,
         dim: !!step && !atomTurn,
         chosen: chosen.atoms.has(c.id),
-        onClick: () => {
-          if (chosen.atoms.has(c.id)) chosen.atoms.delete(c.id);
-          else chosen.atoms.add(c.id);
-          render();
-        },
+        onClick: () => pickAtom(c),
       })
     );
   }
@@ -902,6 +907,20 @@ function numberField(id, label, value, max) {
   input.value = String(value);
   field.append(input);
   return field;
+}
+
+// Laying an atom is the turn itself: one click puts a plain atom down. The
+// fusion card instead opens a group to gather atoms into.
+function pickAtom(c) {
+  const plainPlacing = chosen.mode === 'place' && !fusionChosen();
+  if (plainPlacing && c.el !== FUSION) {
+    chosen.atoms.clear();
+    act({ t: 'placeUnit', cards: [c.id] });
+    return;
+  }
+  if (chosen.atoms.has(c.id)) chosen.atoms.delete(c.id);
+  else chosen.atoms.add(c.id);
+  render();
 }
 
 function renderActions(g, myMove) {
@@ -941,8 +960,18 @@ function renderActions(g, myMove) {
       return;
     }
     const atoms = [...chosen.atoms];
+    if (fusionChosen()) {
+      bar.append(
+        button('אשר', 'confirm', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 1),
+        button('בטל', 'cancel', () => {
+          chosen.atoms.clear();
+          render();
+        })
+      );
+      return;
+    }
     bar.append(
-      button('הנח', 'place', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 0),
+      button('הנח', 'place', () => render(), true, 'active'),
       button('החלף מולקולה', 'swap', () => setMode('swap'))
     );
     if (g.atomDeck || g.atomDiscard) {

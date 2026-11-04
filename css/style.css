@@ -71,6 +71,14 @@ button {
 }
 button:hover:not(:disabled) { background: #313d52; }
 button:disabled { opacity: 0.45; cursor: default; }
+.actions button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06121f;
+  font-weight: 700;
+  cursor: default;
+}
+
 button.primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 700; }
 button.primary:hover:not(:disabled) { background: #6fb6ff; }
 

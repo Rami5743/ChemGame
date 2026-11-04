@@ -24,9 +24,10 @@ async function clickMove(page, move) {
       await page.click(action('confirm'));
       break;
     case 'placeUnit':
-      // Laying an atom needs no button first: the cards are already live.
+      // A plain atom goes down on the click itself; a fusion gathers a group
+      // around the fusion card, which the bot always names first.
       for (const id of move.cards) await page.click(card('#hand-atoms', id));
-      await page.click(action('place'));
+      if (move.cards.length > 1) await page.click(action('confirm'));
       break;
     case 'drawAtom':
       await page.click(action('draw'));
@@ -152,6 +153,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   let tookBack = false;
   let sawAlkaneField = false;
   let sawShape = false;
+  let sawFusionPrompt = false;
+  let sawOneClickPlace = false;
 
   while (moves < 300) {
     const state = await readState(host);
@@ -178,8 +181,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         const unitsBefore = (await page.$$('#table-units .unit')).length;
         check('while a molecule is being built the cards are live with no button first',
           (await page.$$('#hand-atoms .cardbtn.pickable')).length > 0);
+        check('and laying is already the move under way',
+          await page.isVisible(`${action('place')}.active`));
         await page.click(card('#hand-atoms', bad.id));
-        await page.click(action('place'));
         await page.waitForSelector('#game-note.error', { timeout: 10000 });
         check('an atom that does not fit is refused, with a reason on screen',
           (await page.textContent('#game-note')).length > 0);
@@ -203,6 +207,17 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     const tries = move ? [move] : candidates(state, cards);
     let acted = false;
     for (const m of tries) {
+      // The first fusion of the game: look at what choosing the card does
+      // before actually going through with it.
+      if (!sawFusionPrompt && m.t === 'placeUnit' && m.cards.length > 1) {
+        await page.click(card('#hand-atoms', m.cards[0]));
+        check('choosing the fusion card asks for the atoms to fuse with it',
+          (await page.textContent('#turn-banner')).includes('היתוך'));
+        check('and the confirm waits for at least one of them',
+          await page.isDisabled(action('confirm')));
+        await page.click(action('cancel'));
+        sawFusionPrompt = true;
+      }
       if (m.t === 'startMolecule' || m.t === 'swapMolecule') {
         const molId = cards.molecules.find((c) => c.id === m.molecule)?.mol;
         if (MOLECULES[molId]?.special === 'alkanes') {
@@ -226,6 +241,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         continue;
       }
       if (m.cards && m.cards.length > 1) sawFused = true;
+      if (m.t === 'placeUnit' && m.cards.length === 1) sawOneClickPlace = true;
       break;
     }
     moves += 1;
@@ -235,6 +251,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   const final = await readState(host);
   check('a game played only with clicks reaches a winner', !!final.game.winner, stuck || `${moves} moves`);
   check('a fused placement was made', sawFused);
+  check('a plain atom was laid by one click, with nothing to confirm', sawOneClickPlace);
+  check('the fusion asked for its atoms first', sawFusionPrompt);
   check('an illegal placement was refused on screen', sawRefusal);
   check('a card was taken back by clicking it', tookBack);
   check('the alkane declaration appears when that card is chosen', sawAlkaneField);
