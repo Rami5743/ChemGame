@@ -369,6 +369,8 @@ function renderLobby() {
 
 function renderGame() {
   const inGame = snapshot.order.some((p) => p.id === me.id);
+  // Whose turn it is shows as a frame in the list of players. The banner says
+  // only what the frame cannot.
   const banner = $('turn-banner');
   banner.className = 'banner';
   if (!inGame) {
@@ -380,7 +382,8 @@ function renderGame() {
     banner.textContent = 'תורך. בחר קלף.';
     banner.classList.add('mine');
   } else {
-    banner.textContent = `תורו של ${nameOf(snapshot.turn)}.`;
+    banner.textContent = '';
+    banner.classList.add('hidden');
   }
 
   const table = $('table');
@@ -404,16 +407,26 @@ function renderGame() {
 
   const players = $('players');
   players.textContent = '';
-  for (const p of snapshot.order) {
+  snapshot.order.forEach((p, i) => {
     const li = document.createElement('li');
     if (p.id === snapshot.turn && !snapshot.over) li.classList.add('turn');
-    li.textContent = p.name + (p.id === me.id ? ' (אתה)' : '');
-    const c = document.createElement('span');
-    c.className = 'count';
-    c.textContent = `${p.count} קלפים`;
-    li.append(c);
+    if (!p.online) li.classList.add('gone');
+
+    const seat = document.createElement('span');
+    seat.className = 'seat';
+    seat.textContent = `${i + 1}.`;
+
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = p.name + (p.id === me.id ? ' (אתה)' : '');
+
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `${p.count} קלפים`;
+
+    li.append(seat, who, count);
     players.append(li);
-  }
+  });
 
   const hand = $('hand');
   hand.textContent = '';

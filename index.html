@@ -49,17 +49,24 @@
   </section>
 
   <section id="view-game" class="view hidden">
-    <div id="turn-banner" class="banner"></div>
+    <div class="board">
 
-    <h3>על השולחן</h3>
-    <div id="table" class="table"></div>
+      <aside class="side">
+        <h3>סדר השחקנים</h3>
+        <ol id="players" class="players"></ol>
+      </aside>
 
-    <h3>שחקנים</h3>
-    <ul id="players" class="players"></ul>
+      <div class="main">
+        <div id="turn-banner" class="banner"></div>
 
-    <h3>הקלפים שלך</h3>
-    <div id="hand" class="hand"></div>
+        <h3>על השולחן</h3>
+        <div id="table" class="table"></div>
 
+        <h3>הקלפים שלך</h3>
+        <div id="hand" class="hand"></div>
+      </div>
+
+    </div>
     <p id="game-note" class="note"></p>
   </section>
 
