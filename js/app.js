@@ -1,4 +1,3 @@
-import { deal, play } from './game.js';
 import { createBus } from './net.js';
 
 const $ = (id) => document.getElementById(id);
@@ -12,7 +11,6 @@ let room = roomFromHash();
 let isHost = false;
 let bus = null;
 let snapshot = null; // last public state published by the host
-let myHand = [];
 let host = null; // host-only bookkeeping
 let noHostTimer = null;
 
@@ -50,11 +48,6 @@ function setStatus(state) {
   const labels = { on: 'מחובר', wait: 'מתחבר', err: 'תקלת חיבור', off: 'מנותק' };
   $('status').dataset.state = state;
   $('status').textContent = labels[state] || state;
-}
-
-function nameOf(id) {
-  const row = (snapshot?.order || []).find((p) => p.id === id);
-  return row ? row.name : 'שחקן';
 }
 
 /* ---------- entry screen ---------- */
@@ -107,7 +100,7 @@ function connect() {
       players: new Map([[me.id, { id: me.id, name: me.name, last: Date.now() }]]),
       order: [me.id],
       locked: false,
-      game: null,
+      turn: 0,
       lastSig: '',
     };
     setInterval(() => {
@@ -131,7 +124,7 @@ function connect() {
 
   window.addEventListener('pagehide', () => {
     if (host) {
-      clearHands();
+      for (const id of host.order) bus.clearPlayer(id);
       bus.clearState();
     }
   });
@@ -166,11 +159,6 @@ function onMessage(sub, msg) {
       noHostTimer = null;
     }
     render();
-  } else if (sub === `p/${me.id}`) {
-    if (msg.t === 'hand') {
-      myHand = msg.cards || [];
-      render();
-    }
   } else if (sub === 'act' && host) {
     onAct(msg);
   }
@@ -187,14 +175,11 @@ function buildState() {
   if (!host.locked) {
     return { phase: 'lobby', host: me.id, order: host.order.map(row) };
   }
-  const g = host.game;
   return {
     phase: 'game',
     host: me.id,
-    order: host.order.map((id) => ({ ...row(id), count: (g.hands[id] || []).length })),
-    turn: host.order[g.turn],
-    table: g.table,
-    over: g.over,
+    order: host.order.map(row),
+    turn: host.order[host.turn],
   };
 }
 
@@ -237,24 +222,6 @@ function onAct(msg) {
     }
     return;
   }
-
-  if (msg.t === 'play') {
-    if (!host.locked || !host.game) return;
-    const p = host.players.get(msg.id);
-    if (!p) return;
-    p.last = Date.now();
-    const r = play(host.game, host.order, msg.id, msg.card);
-    if (!r.ok) return;
-    bus.toPlayer(msg.id, { t: 'hand', cards: host.game.hands[msg.id] });
-    publishState(true);
-    if (host.game.over) clearHands();
-  }
-}
-
-// Retained messages outlive the tab, so a finished or abandoned room clears
-// what it left on the broker.
-function clearHands() {
-  for (const id of host.order) bus.clearPlayer(id);
 }
 
 function moveSeat(id, delta) {
@@ -273,26 +240,12 @@ function startGame() {
     $('lobby-note').classList.add('error');
     return;
   }
-  host.game = deal(host.order);
   host.locked = true;
-  for (const id of host.order) {
-    bus.toPlayer(id, { t: 'hand', cards: host.game.hands[id] });
-  }
+  host.turn = 0;
   publishState(true);
 }
 
 /* ---------- rendering ---------- */
-
-function cardEl(card, playable, onClick) {
-  const el = document.createElement('button');
-  el.className = 'card' + (card.red ? ' red' : '') + (playable ? ' playable' : '');
-  el.disabled = !playable;
-  el.innerHTML = `<span class="rank"></span><span class="suit"></span>`;
-  el.querySelector('.rank').textContent = card.rank;
-  el.querySelector('.suit').textContent = card.suit;
-  if (playable) el.addEventListener('click', onClick);
-  return el;
-}
 
 function render() {
   if (!snapshot) return;
@@ -375,41 +328,21 @@ function renderGame() {
   banner.className = 'banner';
   if (!inGame) {
     banner.textContent = 'המשחק כבר התחיל והחדר נעול. אתה צופה בלבד.';
-  } else if (snapshot.over) {
-    banner.textContent = 'הקלפים נגמרו. המשחק הסתיים.';
-    banner.classList.add('over');
   } else if (snapshot.turn === me.id) {
-    banner.textContent = 'תורך. בחר קלף.';
+    banner.textContent = 'תורך.';
     banner.classList.add('mine');
   } else {
     banner.textContent = '';
     banner.classList.add('hidden');
   }
 
-  const table = $('table');
-  table.textContent = '';
-  if (!snapshot.table.length) {
-    const e = document.createElement('span');
-    e.className = 'empty';
-    e.textContent = 'עוד לא הונח קלף.';
-    table.append(e);
-  }
-  for (const entry of snapshot.table) {
-    const wrap = document.createElement('div');
-    wrap.className = 'played';
-    wrap.append(cardEl(entry.card, false, null));
-    const by = document.createElement('span');
-    by.className = 'by';
-    by.textContent = nameOf(entry.by);
-    wrap.append(by);
-    table.append(wrap);
-  }
+  $('board').textContent = 'לוח המשחק ייבנה כאן.';
 
   const players = $('players');
   players.textContent = '';
   snapshot.order.forEach((p, i) => {
     const li = document.createElement('li');
-    if (p.id === snapshot.turn && !snapshot.over) li.classList.add('turn');
+    if (p.id === snapshot.turn) li.classList.add('turn');
     if (!p.online) li.classList.add('gone');
 
     const seat = document.createElement('span');
@@ -420,32 +353,9 @@ function renderGame() {
     who.className = 'who';
     who.textContent = p.name + (p.id === me.id ? ' (אתה)' : '');
 
-    const count = document.createElement('span');
-    count.className = 'count';
-    count.textContent = `${p.count} קלפים`;
-
-    li.append(seat, who, count);
+    li.append(seat, who);
     players.append(li);
   });
-
-  const hand = $('hand');
-  hand.textContent = '';
-  const myTurn = inGame && !snapshot.over && snapshot.turn === me.id;
-  if (!myHand.length) {
-    const e = document.createElement('span');
-    e.className = 'empty';
-    e.textContent = inGame ? 'אין לך קלפים.' : '';
-    hand.append(e);
-  }
-  for (const card of myHand) {
-    hand.append(cardEl(card, myTurn, () => playCard(card.id)));
-  }
-}
-
-function playCard(cardId) {
-  const msg = { t: 'play', id: me.id, card: cardId };
-  if (host) onAct(msg);
-  else bus.act(msg);
 }
 
 initEntry();
