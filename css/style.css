@@ -92,6 +92,10 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   font-size: 14px;
 }
 
+.link-row { display: flex; gap: 8px; align-items: baseline; margin-top: 4px; }
+.link-state { min-width: 4.5em; }
+.link-url { font-size: 12px; opacity: 0.85; word-break: break-all; }
+
 .note { color: var(--dim); font-size: 13px; margin: 10px 0 0; }
 .note.error { color: var(--bad); }
 .note a { color: var(--accent); }
@@ -100,7 +104,7 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .rules { color: var(--dim); font-size: 13px; text-decoration: none; border-bottom: 1px dotted var(--line); }
 .rules:hover { color: var(--accent); }
 
-.status { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+.status { cursor: pointer; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
 .status[data-state="on"] { color: var(--good); border-color: #2a5c40; }
 .status[data-state="wait"] { color: var(--warn); border-color: #5c4a22; }
 .status[data-state="err"] { color: var(--bad); border-color: #5e2f2c; }

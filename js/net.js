@@ -21,9 +21,11 @@ export const BROKERS = [
   'wss://test.mosquitto.org:8081/mqtt',
 ];
 
+// ?broker=... takes one address, or several separated by commas.
 export function brokerList() {
   const chosen = new URLSearchParams(location.search).get('broker');
-  return chosen ? [chosen] : BROKERS;
+  if (!chosen) return BROKERS;
+  return chosen.split(',').map((u) => u.trim()).filter(Boolean);
 }
 
 export function createBus({ url, room, clientId, isHost, onMessage, onStatus }) {

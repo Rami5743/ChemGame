@@ -71,6 +71,9 @@ function setStatus(state) {
   $('status').textContent = labels[state] || state;
 }
 
+// Tapping the chip says which brokers answered and which did not.
+$('status').addEventListener('click', toggleLinks);
+
 /* ---------- entry screen ---------- */
 
 function initEntry() {
@@ -133,6 +136,7 @@ function hostFanout(urls) {
       isHost: true,
       onMessage,
       onStatus: (state) => {
+        noteLink(url, state);
         if (state === 'on') {
           if (!up.has(url)) {
             up.add(url);
@@ -185,6 +189,7 @@ function playerRelay(urls) {
       isHost: false,
       onMessage,
       onStatus: (state) => {
+        noteLink(url, state);
         if (state === 'on' && !settled) {
           settled = true;
           clearTimeout(timer);
@@ -199,6 +204,7 @@ function playerRelay(urls) {
     });
     timer = setTimeout(() => {
       if (!settled) {
+        noteLink(url, 'dead');
         b.stop();
         tryNext();
       }
@@ -206,6 +212,46 @@ function playerRelay(urls) {
   };
   tryNext();
   return relay;
+}
+
+/* ---------- which brokers answered ---------- */
+
+const links = new Map();
+const LINK_WORD = { on: 'מחובר', wait: 'מנסה', err: 'נכשל', dead: 'לא ענה' };
+let linksOpen = false;
+
+function noteLink(url, state) {
+  links.set(url, state);
+  if (linksOpen) showLinks();
+}
+
+// Readable on a phone, where there is nothing to hover over.
+function showLinks() {
+  const box = $('alert');
+  box.textContent = '';
+  const title = document.createElement('div');
+  title.textContent = 'החיבור לשרתי ההודעות:';
+  box.append(title);
+  for (const [url, state] of links) {
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    const word = document.createElement('span');
+    word.className = 'link-state';
+    word.textContent = LINK_WORD[state] || state;
+    const where = document.createElement('span');
+    where.dir = 'ltr';
+    where.className = 'link-url';
+    where.textContent = url.replace(/^wss?:\/\//, '');
+    row.append(word, where);
+    box.append(row);
+  }
+  box.classList.remove('hidden');
+}
+
+function toggleLinks() {
+  linksOpen = !linksOpen;
+  if (linksOpen) showLinks();
+  else $('alert').classList.add('hidden');
 }
 
 function noBroker() {
@@ -245,6 +291,7 @@ function connect() {
     bus = playerRelay(brokerList());
     setInterval(() => bus.act({ t: 'hello', id: me.id, name: me.name }), HEARTBEAT_MS);
     setInterval(() => {
+      if (linksOpen) return;
       const stale = lastStateAt && Date.now() - lastStateAt > STALE_MS;
       $('alert').classList.toggle('hidden', !stale);
       if (stale) {
