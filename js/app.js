@@ -1,4 +1,6 @@
 import { createBus } from './net.js';
+import { newGame, apply, publicView, privateView } from './rules.js';
+import { MOLECULES, ELEMENTS } from './cards.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +16,10 @@ let room = roomFromHash();
 let isHost = false;
 let bus = null;
 let snapshot = null; // last public state published by the host
+let myCards = null; // what the host sent to me alone
 let host = null; // host-only bookkeeping
+let moveSeq = 0;
+const awaitingMove = new Map();
 let noHostTimer = null;
 
 const seatName = (n) => `שחקן ${n}`;
@@ -102,6 +107,8 @@ function connect() {
       locked: false,
       turn: 0,
       deal: { ...DEFAULT_DEAL },
+      game: null,
+      rev: 0,
       lastSig: '',
     };
     setInterval(() => {
@@ -164,12 +171,31 @@ function copyLink() {
 
 function onMessage(sub, msg) {
   if (sub === 'state') {
+    const grew = !snapshot || msg.rev > snapshot.rev;
     snapshot = msg;
+    if (grew) {
+      for (const [seq, resolve] of awaitingMove) {
+        awaitingMove.delete(seq);
+        resolve(null);
+      }
+    }
     if (noHostTimer) {
       clearTimeout(noHostTimer);
       noHostTimer = null;
     }
     render();
+  } else if (sub === `p/${me.id}`) {
+    if (msg.t === 'hand') {
+      myCards = msg;
+      render();
+    } else if (msg.t === 'rejected') {
+      const resolve = awaitingMove.get(msg.seq);
+      if (resolve) {
+        awaitingMove.delete(msg.seq);
+        resolve(msg.error);
+      }
+      showReject(msg.error);
+    }
   } else if (sub === 'act' && host) {
     onAct(msg);
   }
@@ -186,12 +212,29 @@ function buildState() {
   if (!host.locked) {
     return { phase: 'lobby', host: me.id, order: host.order.map(row), deal: host.deal };
   }
+  const pub = publicView(host.game);
+  const counts = Object.fromEntries(pub.seats.map((s) => [s.id, s]));
   return {
     phase: 'game',
     host: me.id,
-    order: host.order.map(row),
-    turn: host.order[host.turn],
     deal: host.deal,
+    order: host.order.map((id) => ({
+      ...row(id),
+      atoms: counts[id].atoms,
+      molecules: counts[id].molecules,
+    })),
+    turn: pub.turn,
+    game: {
+      phase: pub.phase,
+      area: pub.area,
+      pickKind: pub.pickKind,
+      takeback: pub.takeback,
+      atomDeck: pub.atomDeck,
+      atomDiscard: pub.atomDiscard,
+      molDeck: pub.molDeck,
+      molDiscard: pub.molDiscard,
+      winner: pub.winner,
+    },
   };
 }
 
@@ -201,7 +244,15 @@ function publishState(force) {
   const sig = JSON.stringify(payload);
   if (!force && sig === host.lastSig) return;
   host.lastSig = sig;
+  payload.rev = ++host.rev;
   bus.state(payload);
+}
+
+// Each player is told his own cards and nothing else.
+function sendHands() {
+  for (const id of host.order) {
+    bus.toPlayer(id, { t: 'hand', ...privateView(host.game, id) });
+  }
 }
 
 function onAct(msg) {
@@ -225,6 +276,21 @@ function onAct(msg) {
       return; // the room is locked and this is not one of its players
     }
     publishState();
+    return;
+  }
+
+  if (msg.t === 'move') {
+    if (!host.locked || !host.game) return;
+    const p = host.players.get(msg.id);
+    if (!p) return;
+    p.last = Date.now();
+    const r = apply(host.game, msg.id, msg.move || {});
+    if (!r.ok) {
+      bus.toPlayer(msg.id, { t: 'rejected', seq: msg.seq, error: r.error }, false);
+      return;
+    }
+    sendHands();
+    publishState(true);
     return;
   }
 
@@ -288,11 +354,67 @@ function startGame() {
   }
   host.deal = deal;
   host.locked = true;
-  host.turn = 0;
+  host.game = newGame({
+    seats: [...host.order],
+    deal,
+    seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
+  });
+  sendHands();
   publishState(true);
 }
 
+// Sends a move and resolves with null when it went through, or with the
+// reason it did not.
+function sendMove(move) {
+  const seq = ++moveSeq;
+  const answer = new Promise((resolve) => {
+    awaitingMove.set(seq, resolve);
+    setTimeout(() => {
+      if (awaitingMove.delete(seq)) resolve('אין תשובה מהמארח');
+    }, 8000);
+  });
+  const msg = { t: 'move', id: me.id, seq, move };
+  if (host) onAct(msg);
+  else bus.act(msg);
+  return answer;
+}
+
+function showReject(text) {
+  $('game-note').textContent = text;
+  $('game-note').classList.add('error');
+  clearTimeout(showReject.timer);
+  showReject.timer = setTimeout(() => {
+    $('game-note').textContent = '';
+    $('game-note').classList.remove('error');
+  }, 4000);
+}
+
 /* ---------- rendering ---------- */
+
+const PROMPT = {
+  opening: 'תורך לפתוח מולקולה, או למשוך חמישה קלפים ולבחור אחד.',
+  building: 'תורך.',
+  picking: 'בחר קלף אחד מתוך החמישה.',
+  takeback: 'אפשר לקחת בחזרה קלף אטום אחד שהנחת.',
+};
+
+function nameOf(id) {
+  const row = (snapshot?.order || []).find((p) => p.id === id);
+  return row ? row.name : 'שחקן';
+}
+
+// Stands in for the board until the cards are drawn on screen.
+function boardSummary(g) {
+  if (!g.area) return '';
+  const parts = [];
+  parts.push(g.area.molecule ? `מולקולה: ${MOLECULES[g.area.molecule].name}` : 'אין מולקולה על השולחן');
+  if (g.area.alkaneN) parts.push(`אטומי פחמן: ${g.area.alkaneN}`);
+  if (g.area.units.length) {
+    parts.push('על השולחן: ' + g.area.units.map((u) => ELEMENTS[u.el].symbol).join(' '));
+  }
+  parts.push(`קופת אטומים: ${g.atomDeck}`, `קופת מולקולות: ${g.molDeck}`);
+  return parts.join(' · ');
+}
 
 function render() {
   if (!snapshot) return;
@@ -373,25 +495,31 @@ function renderGame() {
   const inGame = snapshot.order.some((p) => p.id === me.id);
   // Whose turn it is shows as a frame in the list of players. The banner says
   // only what the frame cannot.
+  const g = snapshot.game || {};
+  const waiting = g.phase === 'takeback' ? g.takeback.pending : [snapshot.turn];
+
   const banner = $('turn-banner');
   banner.className = 'banner';
   if (!inGame) {
     banner.textContent = 'המשחק כבר התחיל והחדר נעול. אתה צופה בלבד.';
-  } else if (snapshot.turn === me.id) {
-    banner.textContent = 'תורך.';
+  } else if (g.winner) {
+    banner.textContent = g.winner === me.id ? 'ניצחת.' : `${nameOf(g.winner)} ניצח.`;
+    banner.classList.add('over');
+  } else if (waiting.includes(me.id)) {
+    banner.textContent = PROMPT[g.phase] || 'תורך.';
     banner.classList.add('mine');
   } else {
     banner.textContent = '';
     banner.classList.add('hidden');
   }
 
-  $('board').textContent = 'לוח המשחק ייבנה כאן.';
+  $('board').textContent = boardSummary(g);
 
   const players = $('players');
   players.textContent = '';
   snapshot.order.forEach((p, i) => {
     const li = document.createElement('li');
-    if (p.id === snapshot.turn) li.classList.add('turn');
+    if (waiting.includes(p.id) && !g.winner) li.classList.add('turn');
     if (!p.online) li.classList.add('gone');
 
     const seat = document.createElement('span');
@@ -402,9 +530,23 @@ function renderGame() {
     who.className = 'who';
     who.textContent = p.name + (p.id === me.id ? ' (אתה)' : '');
 
-    li.append(seat, who);
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `${p.atoms} · ${p.molecules}`;
+    count.title = 'קלפי אטום · קלפי מולקולה';
+
+    li.append(seat, who, count);
     players.append(li);
   });
 }
+
+// The page's own handle on the game. The host validates every move, so
+// nothing here grants a player anything he could not ask for anyway.
+window.chemgame = {
+  move: sendMove,
+  state: () => snapshot,
+  cards: () => myCards,
+  me: () => ({ ...me }),
+};
 
 initEntry();

@@ -55,7 +55,7 @@ export function createBus({ room, clientId, isHost, onMessage, onStatus }) {
   return {
     act: (obj) => pub('act', obj, false),
     state: (obj) => pub('state', obj, true),
-    toPlayer: (id, obj) => pub(`p/${id}`, obj, true),
+    toPlayer: (id, obj, retain = true) => pub(`p/${id}`, obj, retain),
     clearPlayer: (id) => client.publish(`${base}/p/${id}`, '', { qos: 0, retain: true }),
     clearState: () => client.publish(`${base}/state`, '', { qos: 0, retain: true }),
     stop: () => client.end(true),

@@ -152,6 +152,8 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .players li.gone { opacity: 0.5; }
 .players .seat { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 .players li.turn .seat { color: inherit; }
+.players .count { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.players li.turn .count { color: inherit; }
 .players .who { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
   .board { flex-direction: column; }
