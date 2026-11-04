@@ -106,6 +106,33 @@ li { margin: 6px 0; }
 .examples.bad .row img { border-color: #9c2b24; }
 .examples.bad .row { position: relative; }
 
+/* One card beside what is said about it. */
+.fact {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 18px 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+}
+.fact:last-of-type { border-bottom: none; }
+.fact > img {
+  width: 116px;
+  height: auto;
+  border-radius: 6px;
+  border: 2px solid #111;
+  flex: none;
+}
+.fact > div { flex: 1; min-width: 0; }
+.fact h3 { margin: 0 0 6px; font-style: normal; font-size: 20px; }
+.fact p { margin: 8px 0; }
+.side {
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.45);
+  border-inline-start: 3px solid rgba(0, 0, 0, 0.3);
+  padding: 6px 10px;
+}
+
 .withcard { display: flex; gap: 14px; align-items: flex-start; margin: 12px 0; }
 .withcard img {
   width: 120px;
@@ -160,6 +187,9 @@ th, td {
   h1 { font-size: 26px; }
   .row img { width: 84px; }
   .withcard { flex-direction: column; }
+  .fact { gap: 10px; }
+  .fact > img { width: 86px; }
+  .fact h3 { font-size: 18px; }
   table { font-size: 14px; }
   th, td { padding: 4px 7px; }
 }

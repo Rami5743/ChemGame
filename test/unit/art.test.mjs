@@ -50,8 +50,22 @@ export default async function run({ check }) {
     (text.match(/assets\/cards\/he\//g) || []).length >= 10);
   check('the rules page leads back to the game', text.includes('href="./"'));
 
+  let facts = -1;
+  try { facts = await sizeOf('facts.html'); } catch {}
+  check('the page about the cards is there', facts > 0);
+  const factsText = facts > 0 ? await readFile(join(root, 'facts.html'), 'utf8') : '';
+  for (const id of Object.keys(MOLECULES)) {
+    check(`the card page says something about ${id}`, factsText.includes(cardArt.molecule(id)));
+  }
+  for (const el of [...Object.keys(ELEMENTS), FUSION]) {
+    check(`the card page says something about ${el}`, factsText.includes(cardArt.atom(el)));
+  }
+  check('the card page leads back to the game', factsText.includes('href="./"'));
+
   const page = await readFile(join(root, 'index.html'), 'utf8');
   check('the entry screen links to the rules', page.includes('id="rules-link"') && page.includes('rules.html'));
+  check('the entry screen links to the page about the cards',
+    page.includes('id="facts-link"') && page.includes('facts.html'));
   check('the entry screen links to the printed game',
     page.includes('https://www.thegamecrafter.com/games/atoms-and-molecules'));
   check('that link opens away from the game', /id="buy"[^>]*target="_blank"/.test(page));
