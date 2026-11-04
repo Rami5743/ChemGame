@@ -70,7 +70,7 @@ export default async function run({ check }) {
   }
   check('the rules page shows the cards it talks about',
     (text.match(/assets\/cards\/he\//g) || []).length >= 10);
-  check('the rules page leads back to the game', text.includes('href="./"'));
+  check('the rules page leads back to the game', text.includes("href=\"./?lang=he\""));
 
   for (const art of ['glycine', 'atom']) {
     let size = -1;
@@ -99,8 +99,40 @@ export default async function run({ check }) {
     factsText.includes('css/facts.css') && !factsText.includes('css/rules.css'));
   check('the card page leads to the game and to the rules',
     factsText.includes('href="./"') && factsText.includes('href="rules.html"'));
-  check('the rules page leads to the game and to the cards',
-    text.includes('href="./"') && text.includes('href="facts.html"'));
+  check('the rules page leads to the game and to the sheet',
+    text.includes('./?lang=he') && text.includes('facts.pdf'));
+  check('the Hebrew sheet links out to Wikipedia',
+    (factsText.match(/he\.wikipedia\.org/g) || []).length > 30);
 
+  // --- the same in English ------------------------------------------------
+  const inEnglish = {
+    'facts.en.html': ['grokipedia.com/page/', 'The atom cards', 'The molecule cards'],
+    'rules.en.html': ['assets/cards/en/', 'The aim', 'The nuclear fusion card', 'rules.html'],
+  };
+  for (const [name, needles] of Object.entries(inEnglish)) {
+    let size = -1;
+    try { size = await sizeOf(name); } catch {}
+    check(`${name} is there`, size > 0);
+    const body = size > 0 ? await readFile(join(root, name), 'utf8') : '';
+    for (const needle of needles) check(`${name} carries ${needle}`, body.includes(needle));
+  }
+  check('the English sheet links out to Grokipedia',
+    ((await readFile(join(root, 'facts.en.html'), 'utf8')).match(/grokipedia\.com/g) || []).length > 30);
+  check('the Hebrew rules link to the English ones', text.includes('rules.en.html'));
 
+  // --- the sheet as a file ------------------------------------------------
+  for (const pdf of ['facts.pdf', 'facts.en.pdf']) {
+    let size = -1;
+    try { size = await sizeOf(pdf); } catch {}
+    check(`${pdf} was printed`, size > 100 * 1024, size);
+  }
+  const entry = await readFile(join(root, 'index.html'), 'utf8');
+  check('the game points at the printed sheet, not at the page',
+    entry.includes('facts.pdf') && !entry.includes('"facts.html"'));
+  check('the entry screen links to the rules and to the sheet',
+    entry.includes('rules.html') && entry.includes('facts.pdf'));
+  check('the entry screen offers the printed game',
+    entry.includes('thegamecrafter.com/games/atoms-and-molecules'));
+  check('the header carries a flag for each language',
+    (entry.match(/data-lang="(he|en)"/g) || []).length === 2);
 }

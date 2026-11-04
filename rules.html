@@ -12,8 +12,10 @@
   <div class="bar">
     <h1>אטומים ומולקולות</h1>
     <nav>
-      <a class="back" href="./">למשחק</a>
-      <a class="back" href="facts.html">למידע על הקלפים</a>
+      <span class="flag active" title="עברית" aria-label="עברית"><svg viewBox="0 0 33 24" aria-hidden="true"><rect width="33" height="24" fill="#fff"/><rect y="2.5" width="33" height="3" fill="#0038b8"/><rect y="18.5" width="33" height="3" fill="#0038b8"/><g fill="none" stroke="#0038b8" stroke-width="1.1"><path d="M16.5 7.6l3.4 5.9h-6.8z"/><path d="M16.5 16.4l-3.4-5.9h6.8z"/></g></svg></span>
+      <a class="flag" href="rules.en.html" title="English" aria-label="English"><svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="ukclip"><rect width="60" height="30"/></clipPath><g clip-path="url(#ukclip)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#c8102e" stroke-width="3.5"/><path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30 M0,15 H60" stroke="#c8102e" stroke-width="6"/></g></svg></a>
+      <a class="back" id="to-game" href="./?lang=he">למשחק</a>
+      <a class="back" href="facts.pdf" target="_blank" rel="noopener">על הקלפים</a>
     </nav>
   </div>
 </header>
@@ -202,5 +204,10 @@
   <p class="thanks">תודה!</p>
 
 </main>
+
+<script>
+  // Keep the room when the rules were opened from inside a game.
+  if (location.hash) document.getElementById('to-game').href = './?lang=he' + location.hash;
+</script>
 </body>
 </html>

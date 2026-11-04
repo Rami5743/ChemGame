@@ -48,7 +48,13 @@ h1 {
   letter-spacing: -0.5px;
 }
 
-nav { display: flex; gap: 14px; flex-wrap: wrap; }
+nav { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+.flag { display: inline-flex; padding: 2px; border-radius: 5px; line-height: 0;
+  background: rgba(255, 255, 255, 0.5); border: 1px solid var(--rule); opacity: 0.55; }
+.flag svg { width: 25px; height: 17px; display: block; border-radius: 2px; }
+.flag:hover { opacity: 0.9; }
+.flag.active { opacity: 1; border-color: #111; }
 
 .back {
   color: #4a3d00;

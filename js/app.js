@@ -116,6 +116,7 @@ function enter() {
     room = newRoomId();
     isHost = true;
     history.replaceState(null, '', shareLink());
+    updateDocLinks();
   }
   connect();
 }
@@ -1206,8 +1207,20 @@ window.chemgame = {
   me: () => ({ ...me }),
 };
 
+// The pages beside the game keep the room and the language.
+function updateDocLinks() {
+  const here = lang();
+  for (const a of document.querySelectorAll('a[href^="rules"]')) {
+    a.href = (here === 'en' ? 'rules.en.html' : 'rules.html') + location.hash;
+  }
+  for (const a of document.querySelectorAll('a[href^="facts"]')) {
+    a.href = here === 'en' ? 'facts.en.pdf' : 'facts.pdf';
+  }
+}
+
 function initLanguage() {
   applyStaticWords();
+  updateDocLinks();
   for (const b of document.querySelectorAll('.flag')) {
     b.classList.toggle('active', b.dataset.lang === lang());
     b.addEventListener('click', () => setLang(b.dataset.lang));

@@ -11,10 +11,13 @@ Live at https://rami5743.github.io/ChemGame/
 The printed game's own material is kept under `materials/` as it was supplied —
 the rules in Hebrew and English, the card faces in both languages, the backs,
 the booklet, the boxes and the fact sheets. The card images are built from it,
-`rules.html` is the booklet set as one continuous page, and `facts.html` is
-the sheet about the cards — the physics, chemistry and biology behind them —
-each in the colours and the layout of the printed thing it came from. The
-entry screen also links to the printed game at The Game Crafter.
+`rules.html` and `rules.en.html` are the booklet set as one continuous page.
+`facts.html` and `facts.en.html` are the sheet about the cards — the physics,
+chemistry and biology behind them — and they are printed to `facts.pdf` and
+`facts.en.pdf`, which is what the game links to. Each keeps the colours and the
+layout of the printed thing it came from, with the terms linked out: the Hebrew
+to Wikipedia, the English to Grokipedia. The entry screen also links to the
+printed game at The Game Crafter.
 
 ## Playing
 
@@ -73,8 +76,8 @@ who has closed the page.
 | file               | contents                                              |
 | ------------------ | ----------------------------------------------------- |
 | `index.html`       | the three screens: name, lobby, game                  |
-| `rules.html`       | the rules, in the booklet's colours                   |
-| `facts.html`       | what each card is, in the same colours                |
+| `rules.html`       | the rules, in the booklet's colours, and `rules.en.html` |
+| `facts.html`       | what each card is, printed to `facts.pdf`             |
 | `css/style.css`    | styling                                               |
 | `css/rules.css`    | the rules page                                        |
 | `css/facts.css`    | the sheet about the cards                             |
@@ -112,6 +115,12 @@ need Python with Pillow, and poppler for the second:
 
 ```bash
 python3 tools/extract-booklet-art.py && python3 tools/extract-facts-art.py
+```
+
+After changing either sheet about the cards, print it again:
+
+```bash
+node tools/build-facts-pdf.mjs
 ```
 
 ## Configuration
