@@ -396,6 +396,8 @@ function applyTakeBack(state, playerId, move) {
 
 /* ---------- views ---------- */
 
+const topOf = (pile) => (pile.length ? pile[pile.length - 1] : null);
+
 // What everybody may see.
 export function publicView(state) {
   return {
@@ -419,8 +421,10 @@ export function publicView(state) {
     takeback: state.takeback ? { ...state.takeback } : null,
     atomDeck: state.atomDeck.length,
     atomDiscard: state.atomDiscard.length,
+    atomDiscardTop: topOf(state.atomDiscard)?.el ?? null,
     molDeck: state.molDeck.length,
     molDiscard: state.molDiscard.length,
+    molDiscardTop: topOf(state.molDiscard)?.mol ?? null,
     winner: state.winner,
   };
 }

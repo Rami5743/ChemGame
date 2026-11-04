@@ -113,6 +113,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     final.order.find((s) => s.id === final.game.winner)?.atoms === 0);
 
   for (const p of [host, p2, p3]) {
+    // The winning move reaches the other browsers a round trip later.
+    await p.waitForFunction(() => !!window.chemgame.state()?.game?.winner, null, { timeout: 15000 });
     const s = await readState(p);
     check('every player ends on the same winner', s.game.winner === final.game.winner, s.game.winner);
   }

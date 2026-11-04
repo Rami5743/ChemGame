@@ -1,4 +1,4 @@
-// Plays a game the way a person does: by clicking cards and buttons.
+// Plays a game the way a person does: choose a move, then pick its cards.
 import { FUSION, MOLECULES } from '../../js/cards.js';
 import { formulaOf, isPartOf } from '../../js/rules.js';
 import { candidates, compositionOf } from '../support/bot.mjs';
@@ -17,14 +17,16 @@ async function clickMove(page, move) {
   switch (move.t) {
     case 'startMolecule':
     case 'swapMolecule':
+      await page.click(action(move.t === 'startMolecule' ? 'open' : 'swap'));
       await page.click(card('#hand-mols', move.molecule));
       if (move.alkaneN !== undefined) await page.fill('#alkane-n', String(move.alkaneN));
       for (const id of move.cards) await page.click(card('#hand-atoms', id));
-      await page.click(action(move.t === 'startMolecule' ? 'open' : 'swap'));
+      await page.click(action('confirm'));
       break;
     case 'placeUnit':
-      for (const id of move.cards) await page.click(card('#hand-atoms', id));
       await page.click(action('place'));
+      for (const id of move.cards) await page.click(card('#hand-atoms', id));
+      await page.click(action('confirm'));
       break;
     case 'drawAtom':
       await page.click(action('draw'));
@@ -39,13 +41,21 @@ async function clickMove(page, move) {
       await page.click(card('#overlay-cards', move.card));
       break;
     case 'takeBack':
-      if (move.card) await page.click(card('#table-units', move.card));
-      else await page.click(action('takeNothing'));
+      if (move.card) {
+        await page.click(action('takeOne'));
+        await page.click(card('#table-units', move.card));
+      } else {
+        await page.click(action('takeNothing'));
+      }
       break;
     default:
       throw new Error('no click for ' + move.t);
   }
 }
+
+const giveUp = async (page) => {
+  if (await page.isVisible(action('cancel'))) await page.click(action('cancel'));
+};
 
 export default async function run({ check, browser, baseUrl, consoleErrors }) {
   const open = (url, name) => openPlayer({ browser, url, name, consoleErrors, label: name });
@@ -75,19 +85,41 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     srcs.length === 6 && srcs.every((s) => s.startsWith('assets/cards/he/atom-')), srcs[0]);
   const loaded = await host.$$eval('#hand-atoms img', (n) => n.every((i) => i.complete && i.naturalWidth > 0));
   check('the card pictures actually load', loaded);
-  check('both deck backs are shown', (await host.$$('#decks .pile img')).length === 2);
+  check('all four piles are shown', (await host.$$('#decks .pile')).length === 4);
 
-  /* ---------- picking cards up and putting them down ---------- */
+  /* ---------- a move is chosen before its cards ---------- */
   {
+    check('before a move is chosen, no card can be picked up',
+      (await host.$$('.cardbtn.pickable')).length === 0);
+
+    await host.click(action('open'));
+    check('the screen says which card it wants',
+      (await host.textContent('#turn-banner')).includes('מולקולה'));
+    check('only the molecules can be picked up now',
+      (await host.$$('#hand-mols .cardbtn.pickable')).length > 0 &&
+      (await host.$$('#hand-atoms .cardbtn.pickable')).length === 0);
+    check('the cards that are not wanted yet are faded',
+      (await host.$$('#hand-atoms .cardbtn.dim')).length === 6);
+
     const mine = await readCards(host);
+    const m = mine.molecules[0].id;
+    await host.click(card('#hand-mols', m));
+    check('the chosen card is marked', await host.isVisible(`${card('#hand-mols', m)}.chosen`));
+    check('the screen now asks for an atom',
+      (await host.textContent('#turn-banner')).includes('אטום'));
+    check('and the atoms are the ones that can be picked up',
+      (await host.$$('#hand-atoms .cardbtn.pickable')).length === 6);
+
     const one = mine.atoms[0].id;
     await host.click(card('#hand-atoms', one));
-    check('clicking a card selects it', await host.isVisible(`${card('#hand-atoms', one)}.chosen`));
+    check('an atom can be marked too', await host.isVisible(`${card('#hand-atoms', one)}.chosen`));
     await host.click(card('#hand-atoms', one));
     check('clicking it again lets it go', !(await host.isVisible(`${card('#hand-atoms', one)}.chosen`)));
+
+    await host.click(action('cancel'));
+    check('cancelling drops the whole move', (await host.$$('.cardbtn.chosen')).length === 0);
+    check('and the buttons come back', await host.isVisible(action('open')));
   }
-  check('the player who is not in turn cannot pick anything up',
-    (await guest.$$('#hand-atoms .cardbtn.pickable')).length === 0);
   check('the player who is not in turn has no buttons',
     (await guest.$$('#actions button')).length === 0);
 
@@ -99,7 +131,6 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     const five = await host.$$('#overlay-cards .cardbtn');
     check('drawing five opens the choice', five.length === 5, five.length);
     check('nobody else sees the choice', await guest.isHidden('#overlay'));
-    // The draw itself moved the revision on; the pick has to move it again.
     const beforePick = (await readState(host)).rev;
     const which = (await readCards(host)).pick.cards[2].id;
     await host.click(card('#overlay-cards', which));
@@ -107,6 +138,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     check('the choice closes once one is kept', await host.isHidden('#overlay'));
     check('the kept card joined the hand', (await readCards(host)).molecules.length === held + 1);
     check('the other four were discarded', (await readState(host)).game.molDiscard === 4);
+    check('the discard pile shows its top card face up',
+      (await host.$$eval('#decks .pile img', (n) => n.map((i) => i.getAttribute('src'))))
+        .some((src) => src.includes('mol-')));
   }
 
   /* ---------- playing it out ---------- */
@@ -116,11 +150,17 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   let sawRefusal = false;
   let tookBack = false;
   let sawAlkaneField = false;
+  let sawShape = false;
 
   while (moves < 300) {
     const state = await readState(host);
     const g = state.game;
     if (g.winner) break;
+
+    if (g.area.molecule && !sawShape) {
+      const empties = await host.$$('#table-units .slot-empty');
+      if (empties.length) sawShape = true;
+    }
 
     const actor = g.phase === 'takeback' ? g.takeback.pending[0] : state.turn;
     const page = pages[actor];
@@ -135,14 +175,15 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       );
       if (bad) {
         const unitsBefore = (await page.$$('#table-units .unit')).length;
-        await page.click(card('#hand-atoms', bad.id));
         await page.click(action('place'));
+        await page.click(card('#hand-atoms', bad.id));
+        await page.click(action('confirm'));
         await page.waitForSelector('#game-note.error', { timeout: 10000 });
         check('an atom that does not fit is refused, with a reason on screen',
           (await page.textContent('#game-note')).length > 0);
         check('the refused card changed nothing on the table',
           (await page.$$('#table-units .unit')).length === unitsBefore);
-        await page.click(card('#hand-atoms', bad.id)); // put it back down
+        await giveUp(page);
         sawRefusal = true;
       }
     }
@@ -163,29 +204,26 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       if (m.t === 'startMolecule' || m.t === 'swapMolecule') {
         const molId = cards.molecules.find((c) => c.id === m.molecule)?.mol;
         if (MOLECULES[molId]?.special === 'alkanes') {
+          await page.click(action(m.t === 'startMolecule' ? 'open' : 'swap'));
           await page.click(card('#hand-mols', m.molecule));
           if (await page.isVisible('#alkane-n')) sawAlkaneField = true;
-          await page.click(card('#hand-mols', m.molecule));
+          await giveUp(page);
         }
       }
       try {
         await clickMove(page, m);
       } catch {
+        await giveUp(page);
         continue;
       }
       try {
         await waitRev(state.rev);
         acted = true;
       } catch {
-        // refused: clear whatever is still selected and try the next one
-        await page.evaluate(() => {
-          for (const el of document.querySelectorAll('.cardbtn.chosen')) el.click();
-        });
+        await giveUp(page);
         continue;
       }
-      if (m.t === 'placeUnit' || m.t === 'startMolecule' || m.t === 'swapMolecule') {
-        if (m.cards.length > 1) sawFused = true;
-      }
+      if (m.cards && m.cards.length > 1) sawFused = true;
       break;
     }
     moves += 1;
@@ -198,8 +236,10 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('an illegal placement was refused on screen', sawRefusal);
   check('a card was taken back by clicking it', tookBack);
   check('the alkane declaration appears when that card is chosen', sawAlkaneField);
+  check('the table showed the shape of the molecule, with the spots still missing', sawShape);
 
   for (const p of [host, guest]) {
+    await p.waitForFunction(() => !!window.chemgame.state()?.game?.winner, null, { timeout: 15000 });
     const banner = await p.textContent('#turn-banner');
     check('both players see how it ended', banner.includes('ניצח') || banner.includes('ניצחת'), banner);
   }

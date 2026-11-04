@@ -157,10 +157,30 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   cursor: default;
 }
 .cardbtn img { width: 100%; height: auto; border-radius: 6px; display: block; }
+.cardbtn:disabled { opacity: 1; }
 .cardbtn.pickable { cursor: pointer; }
-.cardbtn.pickable:hover { border-color: #4a607d; transform: translateY(-3px); }
-.cardbtn.chosen { border-color: var(--accent); transform: translateY(-6px); }
-.cardbtn.dim img { opacity: 0.55; }
+.cardbtn.pickable:hover { border-color: #6d8ab0; transform: translateY(-4px); }
+.cardbtn.chosen {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.45), 0 10px 22px rgba(0, 0, 0, 0.5);
+  transform: translateY(-10px);
+}
+.cardbtn.chosen::after {
+  content: '\2713';
+  position: absolute;
+  inset-block-start: -11px;
+  inset-inline-end: -9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #06121f;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 24px;
+  text-align: center;
+}
+.cardbtn.dim { opacity: 0.32; }
 .cardbtn .badge {
   position: absolute;
   inset-block-start: -8px;
@@ -189,10 +209,44 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 }
 .table .empty { color: var(--dim); font-size: 14px; }
 .slot { position: relative; }
-.units { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.slot .cardbtn { --w: 124px; }
+
+/* On a wide screen the atoms stand where the card's diagram draws them. */
+.units-grid {
+  display: grid;
+  gap: 6px;
+  direction: ltr;
+  justify-content: start;
+  align-items: center;
+  justify-items: center;
+}
+.units-grid.units-plain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  direction: rtl;
+  align-items: flex-start;
+}
 .unit { display: flex; gap: 4px; padding: 4px; border-radius: 10px; }
 .unit.fused { border: 1px solid var(--accent); background: rgba(77, 163, 255, 0.08); }
-.unit .cardbtn { --w: 62px; }
+
+/* Inside the diagram a fused group stays one atom wide, so the shape of the
+   molecule is not pulled apart by it. The cards keep their size and fan. */
+.units-grid .unit.fused { flex-direction: column; gap: 0; align-items: center; }
+.units-grid .unit.fused .cardbtn + .cardbtn { margin-block-start: calc(var(--w) * -0.95); }
+.units-grid .unit.fused .sum { margin-block-start: 4px; align-self: center; }
+.slot-empty {
+  width: 86px;
+  aspect-ratio: 440 / 600;
+  border: 1px dashed #303c4f;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #46556e;
+  font-size: 22px;
+  font-weight: 700;
+}
 .unit .sum {
   align-self: center;
   color: var(--accent);
@@ -203,9 +257,20 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 
 /* ---------- decks, actions, hand ---------- */
 
-.decks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; color: var(--dim); font-size: 13px; }
-.decks .pile { display: flex; align-items: center; gap: 8px; }
-.decks .pile img { width: 34px; border-radius: 4px; }
+.decks { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; color: var(--dim); font-size: 12px; }
+.decks .pile { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.decks .pile img { width: 72px; border-radius: 6px; display: block; }
+.decks .blank {
+  width: 72px;
+  aspect-ratio: 440 / 600;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+}
+.decks .pile-label { text-align: center; }
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .actions .num { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; }
@@ -262,7 +327,15 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   .board { flex-direction: column; }
   .side { flex: 1 1 auto; width: 100%; position: static; }
   .cardbtn { --w: 72px; }
-  .unit .cardbtn { --w: 54px; }
+  .slot .cardbtn { --w: 100px; }
+  /* On a phone the diagram would not fit, so the atoms simply flow. */
+  .units-grid { display: flex; flex-wrap: wrap; gap: 8px; direction: rtl; align-items: flex-start; }
+  .units-grid .unit.fused { flex-direction: row; gap: 4px; }
+  .units-grid .unit.fused .cardbtn + .cardbtn { margin-block-start: 0; }
+  .units-grid .unit.fused .sum { margin-block-start: 0; }
+  .slot-empty { display: none; }
+  .decks { gap: 12px; }
+  .decks .pile img, .decks .blank { width: 56px; }
   .table { gap: 10px; }
   main { padding: 12px; }
 }

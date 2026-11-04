@@ -1,5 +1,6 @@
 import { createBus } from './net.js';
 import { newGame, apply, publicView, privateView } from './rules.js';
+import { layoutFor } from './layouts.js';
 import {
   MOLECULES,
   ELEMENTS,
@@ -249,8 +250,10 @@ function buildState() {
   if (!host.locked) {
     return { phase: 'lobby', host: me.id, order: host.order.map(row), deal: host.deal };
   }
-  const pub = publicView(host.game);
-  const counts = Object.fromEntries(pub.seats.map((s) => [s.id, s]));
+  // Everything the rules make public travels, minus what the seats already
+  // carry, so a new field never has to be listed here twice.
+  const { seats, turn, ...game } = publicView(host.game);
+  const counts = Object.fromEntries(seats.map((s) => [s.id, s]));
   return {
     phase: 'game',
     host: me.id,
@@ -260,18 +263,8 @@ function buildState() {
       atoms: counts[id].atoms,
       molecules: counts[id].molecules,
     })),
-    turn: pub.turn,
-    game: {
-      phase: pub.phase,
-      area: pub.area,
-      pickKind: pub.pickKind,
-      takeback: pub.takeback,
-      atomDeck: pub.atomDeck,
-      atomDiscard: pub.atomDiscard,
-      molDeck: pub.molDeck,
-      molDiscard: pub.molDiscard,
-      winner: pub.winner,
-    },
+    turn,
+    game,
   };
 }
 
@@ -479,11 +472,44 @@ function nameOf(id) {
 
 /* ---------- what the player has selected ---------- */
 
-const chosen = { molecule: null, atoms: new Set(), alkaneN: 3 };
+// A move is chosen first and its cards second, so at every moment the screen
+// can say which card it is waiting for.
+const chosen = { mode: null, molecule: null, atoms: new Set(), alkaneN: 3 };
 
 function clearChoice() {
+  chosen.mode = null;
   chosen.molecule = null;
   chosen.atoms.clear();
+}
+
+function setMode(mode) {
+  clearChoice();
+  chosen.mode = mode;
+  render();
+}
+
+// Which card the move that is under way is waiting for.
+function currentStep() {
+  if (!chosen.mode) return null;
+  if (chosen.mode === 'takeOne') return 'table';
+  if ((chosen.mode === 'open' || chosen.mode === 'swap') && !chosen.molecule) return 'molecule';
+  return 'atoms';
+}
+
+const STEP_PROMPT = {
+  molecule: {
+    open: 'בחר מהיד את קלף המולקולה שתרצה לפתוח בה.',
+    swap: 'בחר מהיד את קלף המולקולה שיחליף את זו שעל השולחן.',
+  },
+  atoms: 'בחר קלף אטום להנחה. להיתוך גרעיני, בחר את קלף ההיתוך ואת האטומים שמתאחים איתו.',
+  table: 'בחר אטום שהנחת בעצמך, כדי לקחת אותו בחזרה.',
+};
+
+function stepPrompt() {
+  const step = currentStep();
+  if (step === 'molecule') return STEP_PROMPT.molecule[chosen.mode];
+  if (step) return STEP_PROMPT[step];
+  return null;
 }
 
 async function act(move) {
@@ -646,7 +672,7 @@ function renderBanner(g, inGame, waiting) {
     banner.textContent = g.winner === me.id ? 'ניצחת.' : `${nameOf(g.winner)} ניצח.`;
     banner.classList.add('over');
   } else if (waiting.includes(me.id)) {
-    banner.textContent = PROMPT[g.phase] || 'תורך.';
+    banner.textContent = stepPrompt() || PROMPT[g.phase] || 'תורך.';
     banner.classList.add('mine');
   } else {
     banner.textContent = `ממתינים ל${nameOf(waiting[0])}.`;
@@ -696,55 +722,102 @@ function renderTable(g, myMove) {
     slot.append(e);
   }
 
-  const takingBack = myMove && g.phase === 'takeback';
-  const units = $('table-units');
-  units.textContent = '';
-  for (const u of g.area.units) {
-    const wrap = document.createElement('div');
-    wrap.className = 'unit' + (u.cards.length > 1 ? ' fused' : '');
-    for (const c of u.cards) {
-      const mine = takingBack && u.by === me.id && c.el !== FUSION;
-      wrap.append(
-        atomCard(c.el, {
-          id: c.id,
-          pickable: mine,
-          title: mine ? 'קח בחזרה' : nameOf(u.by),
-          onClick: () => act({ t: 'takeBack', card: c.id }),
-        })
-      );
-    }
-    if (u.cards.length > 1) {
-      const sum = document.createElement('span');
-      sum.className = 'sum';
-      sum.textContent = `= ${ELEMENTS[u.el].symbol}`;
-      wrap.append(sum);
-    }
-    units.append(wrap);
+  const takingBack = myMove && g.phase === 'takeback' && currentStep() === 'table';
+  const grid = $('table-units');
+  grid.textContent = '';
+
+  const layout = g.area.molecule ? layoutFor(g.area.molecule, g.area.alkaneN) : null;
+  grid.className = layout ? 'units-grid' : 'units-grid units-plain';
+  if (!layout) {
+    for (const u of g.area.units) grid.append(unitEl(u, takingBack));
+    return;
   }
+
+  // Each atom goes to the first free spot of its own kind, so the table grows
+  // into the shape the card draws.
+  const slots = layout.map((s) => ({ ...s, unit: null }));
+  const extras = [];
+  for (const u of g.area.units) {
+    const slot = slots.find((s) => s.el === u.el && !s.unit);
+    if (slot) slot.unit = u;
+    else extras.push(u);
+  }
+  for (const s of slots) {
+    const node = s.unit ? unitEl(s.unit, takingBack) : emptySlotEl(s.el);
+    node.style.gridColumn = String(s.x + 1);
+    node.style.gridRow = String(s.y + 1);
+    grid.append(node);
+  }
+  for (const u of extras) grid.append(unitEl(u, takingBack));
+}
+
+function unitEl(u, takingBack) {
+  const wrap = document.createElement('div');
+  wrap.className = 'unit' + (u.cards.length > 1 ? ' fused' : '');
+  for (const c of u.cards) {
+    const mine = takingBack && u.by === me.id && c.el !== FUSION;
+    wrap.append(
+      atomCard(c.el, {
+        id: c.id,
+        pickable: mine,
+        title: mine ? 'קח בחזרה' : nameOf(u.by),
+        onClick: () => act({ t: 'takeBack', card: c.id }),
+      })
+    );
+  }
+  if (u.cards.length > 1) {
+    const sum = document.createElement('span');
+    sum.className = 'sum';
+    sum.textContent = `= ${ELEMENTS[u.el].symbol}`;
+    wrap.append(sum);
+  }
+  return wrap;
+}
+
+function emptySlotEl(el) {
+  const d = document.createElement('div');
+  d.className = 'slot-empty';
+  d.textContent = ELEMENTS[el].symbol;
+  d.title = `חסר ${ELEMENTS[el].name}`;
+  return d;
+}
+
+function pile(src, label, count) {
+  const d = document.createElement('div');
+  d.className = 'pile';
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    d.append(img);
+  } else {
+    const blank = document.createElement('div');
+    blank.className = 'blank';
+    blank.textContent = 'ריקה';
+    d.append(blank);
+  }
+  const t = document.createElement('span');
+  t.className = 'pile-label';
+  t.textContent = `${label}: ${count}`;
+  d.append(t);
+  return d;
 }
 
 function renderDecks(g) {
   const decks = $('decks');
   decks.textContent = '';
-  const pile = (src, label) => {
-    const d = document.createElement('div');
-    d.className = 'pile';
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = '';
-    const t = document.createElement('span');
-    t.textContent = label;
-    d.append(img, t);
-    return d;
-  };
   decks.append(
-    pile(cardArt.atomBack(), `אטומים בקופה: ${g.atomDeck} · משומשים: ${g.atomDiscard}`),
-    pile(cardArt.moleculeBack(), `מולקולות בקופה: ${g.molDeck} · משומשות: ${g.molDiscard}`)
+    pile(cardArt.atomBack(), 'קופת אטומים', g.atomDeck),
+    pile(g.atomDiscardTop ? cardArt.atom(g.atomDiscardTop) : null, 'אטומים משומשים', g.atomDiscard),
+    pile(cardArt.moleculeBack(), 'קופת מולקולות', g.molDeck),
+    pile(g.molDiscardTop ? cardArt.molecule(g.molDiscardTop) : null, 'מולקולות משומשות', g.molDiscard)
   );
 }
 
 function renderHand(g, myMove) {
-  const pickable = myMove && (g.phase === 'opening' || g.phase === 'building');
+  const step = myMove ? currentStep() : null;
+  const molTurn = step === 'molecule';
+  const atomTurn = step === 'atoms';
 
   const mols = $('hand-mols');
   mols.textContent = '';
@@ -752,7 +825,8 @@ function renderHand(g, myMove) {
     mols.append(
       moleculeCard(c.mol, {
         id: c.id,
-        pickable,
+        pickable: molTurn,
+        dim: !!step && !molTurn,
         chosen: chosen.molecule === c.id,
         title: MOLECULES[c.mol].name,
         onClick: () => {
@@ -769,7 +843,8 @@ function renderHand(g, myMove) {
     atoms.append(
       atomCard(c.el, {
         id: c.id,
-        pickable,
+        pickable: atomTurn,
+        dim: !!step && !atomTurn,
         chosen: chosen.atoms.has(c.id),
         onClick: () => {
           if (chosen.atoms.has(c.id)) chosen.atoms.delete(c.id);
@@ -813,6 +888,43 @@ function renderActions(g, myMove) {
   bar.textContent = '';
   if (!myMove || g.phase === 'picking') return;
 
+  if (chosen.mode) {
+    renderModeBar(bar);
+    return;
+  }
+
+  if (g.phase === 'opening') {
+    bar.append(
+      button('פתח מולקולה', 'open', () => setMode('open')),
+      button('משוך 5 קלפי מולקולה', 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
+      button('משוך 5 קלפי אטום', 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
+    );
+    return;
+  }
+
+  if (g.phase === 'building') {
+    bar.append(
+      button('הנח אטום', 'place', () => setMode('place')),
+      button('החלף מולקולה', 'swap', () => setMode('swap'))
+    );
+    if (g.atomDeck || g.atomDiscard) {
+      bar.append(button('משוך קלף אטום', 'draw', () => act({ t: 'drawAtom' })));
+    } else {
+      bar.append(button('ויתור על התור', 'pass', () => act({ t: 'pass' })));
+    }
+    return;
+  }
+
+  if (g.phase === 'takeback') {
+    bar.append(
+      button('קח קלף בחזרה', 'takeOne', () => setMode('takeOne')),
+      button('לא לקחת כלום', 'takeNothing', () => act({ t: 'takeBack', card: null }))
+    );
+  }
+}
+
+// While a move is under way the bar holds what that move still needs.
+function renderModeBar(bar) {
   const atoms = [...chosen.atoms];
   const molId = chosenMoleculeId();
 
@@ -835,37 +947,30 @@ function renderActions(g, myMove) {
   }
   const alkaneN = isAlkane(molId) ? chosen.alkaneN : undefined;
 
-  if (g.phase === 'opening') {
+  if (chosen.mode === 'open') {
     bar.append(
-      button('פתח מולקולה', 'open', () =>
+      button('אשר', 'confirm', () =>
         act({ t: 'startMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
         !!chosen.molecule && atoms.length > 0
-      ),
-      button('משוך 5 קלפי מולקולה', 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
-      button('משוך 5 קלפי אטום', 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
+      )
     );
-    return;
-  }
-
-  if (g.phase === 'building') {
+  } else if (chosen.mode === 'place') {
     bar.append(
-      button('הנח', 'place', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 0 && !chosen.molecule),
-      button('החלף מולקולה', 'swap', () =>
+      button('אשר', 'confirm', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 0)
+    );
+  } else if (chosen.mode === 'swap') {
+    bar.append(
+      button('אשר', 'confirm', () =>
         act({ t: 'swapMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
         !!chosen.molecule && atoms.length > 0
       )
     );
-    if (g.atomDeck || g.atomDiscard) {
-      bar.append(button('משוך קלף אטום', 'draw', () => act({ t: 'drawAtom' })));
-    } else {
-      bar.append(button('ויתור על התור', 'pass', () => act({ t: 'pass' })));
-    }
-    return;
   }
 
-  if (g.phase === 'takeback') {
-    bar.append(button('לא לקחת כלום', 'takeNothing', () => act({ t: 'takeBack', card: null })));
-  }
+  bar.append(button('ביטול', 'cancel', () => {
+    clearChoice();
+    render();
+  }));
 }
 
 function renderOverlay(g) {
