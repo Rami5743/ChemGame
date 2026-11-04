@@ -321,15 +321,15 @@ function moveSeat(id, delta) {
   publishState();
 }
 
-// Reads the two inputs, or explains what is wrong with them.
-function readDeal(seats) {
+// Reads a pair of inputs, or explains what is wrong with them.
+function readDeal(seats, atomsEl = 'set-atoms', molsEl = 'set-mols') {
   const whole = (el, fallback) => {
     const n = Number(el.value);
     return Number.isInteger(n) && n > 0 ? n : fallback;
   };
   const deal = {
-    atoms: whole($('set-atoms'), DEFAULT_DEAL.atoms),
-    molecules: whole($('set-mols'), DEFAULT_DEAL.molecules),
+    atoms: whole($(atomsEl), DEFAULT_DEAL.atoms),
+    molecules: whole($(molsEl), DEFAULT_DEAL.molecules),
   };
   for (const kind of ['atoms', 'molecules']) {
     if (deal[kind] * seats > DECK_SIZE[kind]) {
@@ -371,6 +371,25 @@ function startGame() {
   host.deal = deal;
   host.locked = true;
   host.game = newGame({ seats: [...host.order], deal, seed: gameSeed() });
+  sendHands();
+  publishState(true);
+}
+
+// The same players, dealt again, with sizes the host may change first.
+function startAgain() {
+  if (!host || !host.game) return;
+  const { deal, error } = readDeal(host.order.length, 'again-atoms', 'again-mols');
+  if (error) {
+    showReject(error);
+    return;
+  }
+  host.deal = deal;
+  host.rematches = (host.rematches || 0) + 1;
+  host.game = newGame({
+    seats: [...host.order],
+    deal,
+    seed: (gameSeed() + host.rematches) >>> 0,
+  });
   sendHands();
   publishState(true);
 }
@@ -719,8 +738,35 @@ function renderHand(g, myMove) {
   }
 }
 
+function numberField(id, label, value, max) {
+  const field = document.createElement('label');
+  field.className = 'num';
+  field.textContent = label;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.id = id;
+  input.min = '1';
+  input.max = String(max);
+  input.value = String(value);
+  field.append(input);
+  return field;
+}
+
 function renderActions(g, myMove) {
   const bar = $('actions');
+
+  if (g.winner) {
+    // Leave the fields alone once they are up, so typing in them survives.
+    if (!isHost || $('again-atoms')) return;
+    bar.textContent = '';
+    bar.append(
+      numberField('again-atoms', 'קלפי אטום לכל שחקן', snapshot.deal.atoms, 24),
+      numberField('again-mols', 'קלפי מולקולה לכל שחקן', snapshot.deal.molecules, 8),
+      button('משחק חדש', 'again', startAgain)
+    );
+    return;
+  }
+
   bar.textContent = '';
   if (!myMove || g.phase === 'picking') return;
 
