@@ -336,6 +336,14 @@ function readDeal(seats) {
   return { deal };
 }
 
+// ?seed=<n> replays the same shuffle, which is what the tests run on and what
+// makes a reported game reproducible.
+function gameSeed() {
+  const forced = Number(new URLSearchParams(location.search).get('seed'));
+  if (Number.isInteger(forced) && forced > 0) return forced >>> 0;
+  return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+}
+
 function lobbyError(text) {
   $('lobby-note').textContent = text;
   $('lobby-note').classList.add('error');
@@ -354,11 +362,7 @@ function startGame() {
   }
   host.deal = deal;
   host.locked = true;
-  host.game = newGame({
-    seats: [...host.order],
-    deal,
-    seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
-  });
+  host.game = newGame({ seats: [...host.order], deal, seed: gameSeed() });
   sendHands();
   publishState(true);
 }

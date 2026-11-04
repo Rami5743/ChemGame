@@ -52,3 +52,16 @@ export const DECK_SIZE = {
   atoms: Object.values(ATOM_COUNTS).reduce((a, b) => a + b, 0),
   molecules: Object.values(MOLECULE_COUNTS).reduce((a, b) => a + b, 0),
 };
+
+/* ---------- the pictures ---------- */
+
+// Built from materials/ by tools/build-cards.mjs. Hebrew only for now; a
+// second language becomes a second folder beside this one.
+const ART_DIR = 'assets/cards/he';
+
+export const cardArt = {
+  molecule: (id) => `${ART_DIR}/mol-${id}.webp`,
+  atom: (el) => `${ART_DIR}/atom-${el}.webp`,
+  atomBack: () => `${ART_DIR}/back-atom.webp`,
+  moleculeBack: () => `${ART_DIR}/back-molecule.webp`,
+};

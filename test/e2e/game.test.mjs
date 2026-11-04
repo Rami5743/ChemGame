@@ -62,6 +62,9 @@ function candidates(state, cards, meId) {
   return out;
 }
 
+// A fixed shuffle, so this suite plays the same game every time.
+const SEED = 20260401;
+
 const readState = (page) => page.evaluate(() => window.chemgame.state());
 const readCards = (page) => page.evaluate(() => window.chemgame.cards());
 const sendMove = (page, move) => page.evaluate((m) => window.chemgame.move(m), move);
@@ -69,7 +72,7 @@ const sendMove = (page, move) => page.evaluate((m) => window.chemgame.move(m), m
 export default async function run({ check, browser, baseUrl, consoleErrors }) {
   const open = (url, name) => openPlayer({ browser, url, name, consoleErrors, label: name });
 
-  const host = await open(baseUrl, 'דנה');
+  const host = await open(`${baseUrl}&seed=${SEED}`, 'דנה');
   await connected(host);
   const link = await host.inputValue('#share');
   const p2 = await open(link, 'רם');
@@ -144,11 +147,12 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       const error = await sendMove(page, move);
       if (!error) {
         acted = true;
-        if (move.t === 'placeUnit' || move.t === 'swapMolecule') {
-          const after = await readState(host);
-          if (after.game.phase === 'takeback') { sawCompletion = true; sawTakeback = true; }
-          if (after.game.winner) sawCompletion = true;
-        }
+        // The mover knows its move landed; the host's own page learns it one
+        // round trip later, and the next move is chosen from what it holds.
+        await host.waitForFunction((r) => window.chemgame.state()?.rev > r, state.rev, { timeout: 15000 });
+        const after = await readState(host);
+        if (after.game.phase === 'takeback') { sawCompletion = true; sawTakeback = true; }
+        if (after.game.winner) sawCompletion = true;
         break;
       }
     }
