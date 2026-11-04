@@ -501,18 +501,21 @@ const STEP_PROMPT = {
     open: 'בחר מהיד את קלף המולקולה שתרצה לפתוח בה.',
     swap: 'בחר מהיד את קלף המולקולה שיחליף את זו שעל השולחן.',
   },
-  atoms: 'בחר קלף אטום להנחה. להיתוך גרעיני, בחר את קלף ההיתוך ואת האטומים שמתאחים איתו.',
   place: 'תורך. בחר קלף אטום והוא יונח.',
+  withMolecule: 'בחר קלף אטום, והמהלך ייעשה.',
+  alkane: 'הכרז על מספר אטומי הפחמן, ואז בחר קלף אטום.',
   fusing: 'בחר קלפי אטומים להיתוך.',
   table: 'בחר אטום שהנחת בעצמך, כדי לקחת אותו בחזרה.',
 };
 
 function stepPrompt() {
+  if (!chosen.mode) return null;
+  if (fusionChosen()) return STEP_PROMPT.fusing;
   const step = currentStep();
   if (step === 'molecule') return STEP_PROMPT.molecule[chosen.mode];
-  if (chosen.mode === 'place') return STEP_PROMPT[fusionChosen() ? 'fusing' : 'place'];
-  if (step) return STEP_PROMPT[step];
-  return null;
+  if (step === 'table') return STEP_PROMPT.table;
+  if (chosen.mode === 'place') return STEP_PROMPT.place;
+  return STEP_PROMPT[isAlkane(chosenMoleculeId()) ? 'alkane' : 'withMolecule'];
 }
 
 async function act(move) {
@@ -859,7 +862,9 @@ function renderDecks(g) {
 
 function renderHand(g, myMove) {
   const step = myMove ? currentStep() : null;
-  const molTurn = step === 'molecule';
+  // The molecules stay live through the whole move, so a choice can be
+  // changed or dropped without starting over.
+  const molTurn = !!step && (chosen.mode === 'open' || chosen.mode === 'swap');
   const atomTurn = step === 'atoms';
 
   const mols = $('hand-mols');
@@ -909,13 +914,27 @@ function numberField(id, label, value, max) {
   return field;
 }
 
-// Laying an atom is the turn itself: one click puts a plain atom down. The
-// fusion card instead opens a group to gather atoms into.
+// The move the current choice adds up to.
+function moveFor(atomIds) {
+  const molId = chosenMoleculeId();
+  const alkaneN = isAlkane(molId) ? chosen.alkaneN : undefined;
+  if (chosen.mode === 'open') {
+    return { t: 'startMolecule', molecule: chosen.molecule, cards: atomIds, alkaneN };
+  }
+  if (chosen.mode === 'swap') {
+    return { t: 'swapMolecule', molecule: chosen.molecule, cards: atomIds, alkaneN };
+  }
+  return { t: 'placeUnit', cards: atomIds };
+}
+
+// The atom is the last card any of these moves needs, so clicking it finishes
+// the move. Only the fusion card opens a group that has to be confirmed.
 function pickAtom(c) {
-  const plainPlacing = chosen.mode === 'place' && !fusionChosen();
-  if (plainPlacing && c.el !== FUSION) {
+  const ready = chosen.mode === 'place' || !!chosen.molecule;
+  if (ready && !fusionChosen() && c.el !== FUSION) {
+    const move = moveFor([c.id]);
     chosen.atoms.clear();
-    act({ t: 'placeUnit', cards: [c.id] });
+    act(move);
     return;
   }
   if (chosen.atoms.has(c.id)) chosen.atoms.delete(c.id);
@@ -955,19 +974,8 @@ function renderActions(g, myMove) {
   }
 
   if (g.phase === 'building') {
-    if (chosen.mode === 'swap') {
+    if (chosen.mode === 'swap' || fusionChosen()) {
       renderModeBar(bar);
-      return;
-    }
-    const atoms = [...chosen.atoms];
-    if (fusionChosen()) {
-      bar.append(
-        button('אשר', 'confirm', () => act({ t: 'placeUnit', cards: atoms }), atoms.length > 1),
-        button('בטל', 'cancel', () => {
-          chosen.atoms.clear();
-          render();
-        })
-      );
       return;
     }
     bar.append(
@@ -990,7 +998,8 @@ function renderActions(g, myMove) {
   }
 }
 
-// While a move is under way the bar holds what that move still needs.
+// While a move is under way the bar holds what that move still needs: the
+// carbon count of an alkane, a confirm for a fusion group, and a way out.
 function renderModeBar(bar) {
   const atoms = [...chosen.atoms];
   const molId = chosenMoleculeId();
@@ -1012,25 +1021,13 @@ function renderModeBar(bar) {
     field.append(input);
     bar.append(field);
   }
-  const alkaneN = isAlkane(molId) ? chosen.alkaneN : undefined;
-
-  if (chosen.mode === 'open') {
+  if (fusionChosen()) {
     bar.append(
-      button('אשר', 'confirm', () =>
-        act({ t: 'startMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
-        !!chosen.molecule && atoms.length > 0
-      )
-    );
-  } else if (chosen.mode === 'swap') {
-    bar.append(
-      button('אשר', 'confirm', () =>
-        act({ t: 'swapMolecule', molecule: chosen.molecule, cards: atoms, alkaneN }),
-        !!chosen.molecule && atoms.length > 0
-      )
+      button('אשר', 'confirm', () => act(moveFor(atoms)), atoms.length > 1)
     );
   }
 
-  bar.append(button('ביטול', 'cancel', () => {
+  bar.append(button('בטל', 'cancel', () => {
     clearChoice();
     render();
   }));

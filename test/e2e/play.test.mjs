@@ -21,7 +21,7 @@ async function clickMove(page, move) {
       await page.click(card('#hand-mols', move.molecule));
       if (move.alkaneN !== undefined) await page.fill('#alkane-n', String(move.alkaneN));
       for (const id of move.cards) await page.click(card('#hand-atoms', id));
-      await page.click(action('confirm'));
+      if (move.cards.length > 1) await page.click(action('confirm'));
       break;
     case 'placeUnit':
       // A plain atom goes down on the click itself; a fusion gathers a group
@@ -94,6 +94,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     check('before a move is chosen, no card can be picked up',
       (await host.$$('.cardbtn.pickable')).length === 0);
 
+    check('the button that opens a molecule is named for what it does',
+      (await host.textContent(action('open'))) === 'פתח מולקולה');
     await host.click(action('open'));
     check('the screen says which card it wants',
       (await host.textContent('#turn-banner')).includes('מולקולה'));
@@ -107,16 +109,15 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     const m = mine.molecules[0].id;
     await host.click(card('#hand-mols', m));
     check('the chosen card is marked', await host.isVisible(`${card('#hand-mols', m)}.chosen`));
+    await host.click(card('#hand-mols', m));
+    check('clicking it again lets it go', !(await host.isVisible(`${card('#hand-mols', m)}.chosen`)));
+
+    await host.click(card('#hand-mols', m));
     check('the screen now asks for an atom',
       (await host.textContent('#turn-banner')).includes('אטום'));
     check('and the atoms are the ones that can be picked up',
       (await host.$$('#hand-atoms .cardbtn.pickable')).length === 6);
-
-    const one = mine.atoms[0].id;
-    await host.click(card('#hand-atoms', one));
-    check('an atom can be marked too', await host.isVisible(`${card('#hand-atoms', one)}.chosen`));
-    await host.click(card('#hand-atoms', one));
-    check('clicking it again lets it go', !(await host.isVisible(`${card('#hand-atoms', one)}.chosen`)));
+    check('there is nothing left to confirm', (await host.$$(action('confirm'))).length === 0);
 
     await host.click(action('cancel'));
     check('cancelling drops the whole move', (await host.$$('.cardbtn.chosen')).length === 0);

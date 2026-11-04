@@ -8,8 +8,9 @@ Live at https://rami5743.github.io/ChemGame/
 
 The printed game's own material is kept under `materials/` as it was supplied —
 the rules in Hebrew and English, the card faces in both languages, the backs,
-the booklet, the boxes and the fact sheets. The page serves the rules from
-there and builds its card images from it.
+the booklet, the boxes and the fact sheets. The card images are built from it,
+and `rules.html` is the booklet set as one continuous page. The entry screen
+also links to the printed game at The Game Crafter.
 
 ## Playing
 
@@ -68,7 +69,9 @@ who has closed the page.
 | file               | contents                                              |
 | ------------------ | ----------------------------------------------------- |
 | `index.html`       | the three screens: name, lobby, game                  |
+| `rules.html`       | the rules, in the booklet's colours                   |
 | `css/style.css`    | styling                                               |
+| `css/rules.css`    | the rules page                                        |
 | `js/cards.js`      | the printed deck as a catalogue, and the art paths    |
 | `js/rules.js`      | the game itself — no network, no DOM                  |
 | `js/net.js`        | broker connection, topics, retained messages          |
