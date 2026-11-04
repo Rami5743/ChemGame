@@ -17,6 +17,7 @@ const DECK_SIZE = { atoms: 72, molecules: 36 };
 
 const HEARTBEAT_MS = 4000;
 const OFFLINE_MS = 12000;
+const STALE_MS = 20000;
 const NO_HOST_MS = 9000;
 
 const me = { id: clientId(), name: '' };
@@ -26,6 +27,7 @@ let bus = null;
 let snapshot = null; // last public state published by the host
 let myCards = null; // what the host sent to me alone
 let host = null; // host-only bookkeeping
+let lastStateAt = 0;
 let moveSeq = 0;
 const awaitingMove = new Map();
 let noHostTimer = null;
@@ -72,9 +74,22 @@ function setStatus(state) {
 
 function initEntry() {
   const joining = !!room;
+
+  // A tab that was already in this room walks back into it, which is what a
+  // reload in the middle of a game should do.
+  if (joining && sessionStorage.getItem('cg_room') === room) {
+    me.name = localStorage.getItem('cg_name') || '';
+    connect();
+    return;
+  }
+
   $('name-title').textContent = joining ? 'הצטרפות למשחק' : 'משחק חדש';
   $('name-go').textContent = joining ? 'הצטרף' : 'צור משחק';
   $('name-input').value = localStorage.getItem('cg_name') || '';
+  $('name-fresh').classList.toggle('hidden', !joining);
+  $('name-fresh').addEventListener('click', () => {
+    location.href = `${location.origin}${location.pathname}${location.search}`;
+  });
   $('name-go').addEventListener('click', enter);
   $('name-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') enter();
@@ -108,6 +123,8 @@ function connect() {
     onMessage: onMessage,
   });
 
+  if (!isHost) sessionStorage.setItem('cg_room', room);
+
   if (isHost) {
     host = {
       players: new Map([[me.id, { id: me.id, name: me.name || seatName(1), last: Date.now() }]]),
@@ -119,15 +136,26 @@ function connect() {
       rev: 0,
       lastSig: '',
     };
+    let tick = 0;
     setInterval(() => {
       host.players.get(me.id).last = Date.now();
-      publishState();
+      answerForTheAbsent();
+      // Every tenth second the snapshot goes out whether it changed or not,
+      // so the others can tell a quiet host from a host who has gone.
+      publishState(++tick % 5 === 0);
     }, 2000);
     publishState();
   } else {
     const beat = () => bus.act({ t: 'hello', id: me.id, name: me.name });
     beat();
     setInterval(beat, HEARTBEAT_MS);
+    setInterval(() => {
+      const stale = lastStateAt && Date.now() - lastStateAt > STALE_MS;
+      $('alert').classList.toggle('hidden', !stale);
+      if (stale) {
+        $('alert').textContent = 'המארח אינו מחובר. המשחק ממתין לו, או שאפשר לפתוח משחק חדש.';
+      }
+    }, 4000);
     noHostTimer = setTimeout(() => {
       if (!snapshot) {
         $('lobby-note').textContent =
@@ -179,6 +207,7 @@ function copyLink() {
 
 function onMessage(sub, msg) {
   if (sub === 'state') {
+    lastStateAt = Date.now();
     const grew = !snapshot || msg.rev > snapshot.rev;
     snapshot = msg;
     if (grew) {
@@ -371,6 +400,20 @@ function startGame() {
   host.deal = deal;
   host.locked = true;
   host.game = newGame({ seats: [...host.order], deal, seed: gameSeed() });
+  sendHands();
+  publishState(true);
+}
+
+// A player who has dropped off must not hold the whole table up at the one
+// point where the game waits for everybody: declining is the neutral answer.
+function answerForTheAbsent() {
+  const g = host.game;
+  if (!g || g.phase !== 'takeback') return;
+  const now = Date.now();
+  for (const id of [...g.takeback.pending]) {
+    const p = host.players.get(id);
+    if (p && now - p.last > OFFLINE_MS) apply(g, id, { t: 'takeBack', card: null });
+  }
   sendHands();
   publishState(true);
 }
