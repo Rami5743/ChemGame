@@ -40,7 +40,11 @@ const e2eSuites = wantE2e ? await suitesIn('e2e') : [];
 for (const s of unitSuites) {
   current = s.file.replace('.test.mjs', '');
   const mod = await import(join(here, s.dir, s.file));
-  await mod.default({ check });
+  try {
+    await mod.default({ check });
+  } catch (e) {
+    check('the suite ran to the end', false, String(e && e.message).split('\n')[0]);
+  }
 }
 
 if (e2eSuites.length) {
@@ -53,7 +57,12 @@ if (e2eSuites.length) {
     for (const s of e2eSuites) {
       current = s.file.replace('.test.mjs', '');
       const mod = await import(join(here, s.dir, s.file));
-      await mod.default({ check, browser, baseUrl, consoleErrors });
+      // One suite that throws must not hide the result of the others.
+      try {
+        await mod.default({ check, browser, baseUrl, consoleErrors });
+      } catch (e) {
+        check('the suite ran to the end', false, String(e && e.message).split('\n')[0]);
+      }
     }
   } finally {
     await browser.close();
