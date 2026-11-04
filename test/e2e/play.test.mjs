@@ -24,9 +24,9 @@ async function clickMove(page, move) {
       await page.click(action('confirm'));
       break;
     case 'placeUnit':
-      await page.click(action('place'));
+      // Laying an atom needs no button first: the cards are already live.
       for (const id of move.cards) await page.click(card('#hand-atoms', id));
-      await page.click(action('confirm'));
+      await page.click(action('place'));
       break;
     case 'drawAtom':
       await page.click(action('draw'));
@@ -55,6 +55,7 @@ async function clickMove(page, move) {
 
 const giveUp = async (page) => {
   if (await page.isVisible(action('cancel'))) await page.click(action('cancel'));
+  for (const el of await page.$$('.cardbtn.chosen')) await el.click().catch(() => {});
 };
 
 export default async function run({ check, browser, baseUrl, consoleErrors }) {
@@ -175,9 +176,10 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       );
       if (bad) {
         const unitsBefore = (await page.$$('#table-units .unit')).length;
-        await page.click(action('place'));
+        check('while a molecule is being built the cards are live with no button first',
+          (await page.$$('#hand-atoms .cardbtn.pickable')).length > 0);
         await page.click(card('#hand-atoms', bad.id));
-        await page.click(action('confirm'));
+        await page.click(action('place'));
         await page.waitForSelector('#game-note.error', { timeout: 10000 });
         check('an atom that does not fit is refused, with a reason on screen',
           (await page.textContent('#game-note')).length > 0);

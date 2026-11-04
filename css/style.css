@@ -228,13 +228,24 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   align-items: flex-start;
 }
 .unit { display: flex; gap: 4px; padding: 4px; border-radius: 10px; }
-.unit.fused { border: 1px solid var(--accent); background: rgba(77, 163, 255, 0.08); }
+.unit.fused {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--accent);
+  background: rgba(77, 163, 255, 0.08);
+}
 
-/* Inside the diagram a fused group stays one atom wide, so the shape of the
-   molecule is not pulled apart by it. The cards keep their size and fan. */
-.units-grid .unit.fused { flex-direction: column; gap: 0; align-items: center; }
-.units-grid .unit.fused .cardbtn + .cardbtn { margin-block-start: calc(var(--w) * -0.95); }
-.units-grid .unit.fused .sum { margin-block-start: 4px; align-self: center; }
+/* The fused cards lie one on another, the fusion card uppermost. */
+.stack { position: relative; width: 86px; aspect-ratio: 440 / 600; }
+.stack .cardbtn {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 100%;
+}
+.stack .buried { filter: brightness(0.68); }
+.spread { display: flex; gap: 4px; }
 .slot-empty {
   width: 86px;
   aspect-ratio: 440 / 600;
@@ -248,11 +259,10 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   font-weight: 700;
 }
 .unit .sum {
-  align-self: center;
   color: var(--accent);
   font-weight: 700;
   font-size: 13px;
-  padding-inline: 4px;
+  white-space: nowrap;
 }
 
 /* ---------- decks, actions, hand ---------- */
@@ -330,10 +340,8 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   .slot .cardbtn { --w: 100px; }
   /* On a phone the diagram would not fit, so the atoms simply flow. */
   .units-grid { display: flex; flex-wrap: wrap; gap: 8px; direction: rtl; align-items: flex-start; }
-  .units-grid .unit.fused { flex-direction: row; gap: 4px; }
-  .units-grid .unit.fused .cardbtn + .cardbtn { margin-block-start: 0; }
-  .units-grid .unit.fused .sum { margin-block-start: 0; }
   .slot-empty { display: none; }
+  .stack { width: 72px; }
   .decks { gap: 12px; }
   .decks .pile img, .decks .blank { width: 56px; }
   .table { gap: 10px; }
