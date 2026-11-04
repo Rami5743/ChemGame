@@ -81,10 +81,29 @@ export default async function run({ check }) {
   check('the cards in the examples keep their own black frames',
     !/examples\.(ok|bad)[^}]*border-color/.test(await readFile(join(root, 'css/rules.css'), 'utf8')));
 
+  // --- the sheet about the cards -----------------------------------------
+  // In Hebrew the sheet is the file the game came with. Nothing of it was
+  // reset: tools/link-facts-pdf.py only lays link annotations over the words.
+  const sheet = await readFile(join(root, 'facts.pdf'), 'latin1');
+  check('the Hebrew sheet is the file that came with the game, not a reprint',
+    sheet.includes('Microsoft') && !sheet.includes('Skia/PDF'));
+  check('the Hebrew sheet carries a link on every term',
+    (sheet.match(/\/Link/g) || []).length >= 40, (sheet.match(/\/Link/g) || []).length);
+  check('one set of links per page of the sheet',
+    (sheet.match(/\/Annots/g) || []).length === 3);
+  const linker = await readFile(join(root, 'tools/link-facts-pdf.py'), 'utf8');
+  check('the links of the Hebrew sheet go to Wikipedia',
+    linker.includes('he.wikipedia.org') &&
+    (linker.match(/\("/g) || []).length > 30);
+  check('and they are laid over the supplied file',
+    linker.includes('materials/facts/facts2_1.pdf'));
+
+  // In English there is no such file, so the sheet is a page of our own, set
+  // in the same colours and printed from there.
   let facts = -1;
-  try { facts = await sizeOf('facts.html'); } catch {}
-  check('the page about the cards is there', facts > 0);
-  const factsText = facts > 0 ? await readFile(join(root, 'facts.html'), 'utf8') : '';
+  try { facts = await sizeOf('facts.en.html'); } catch {}
+  check('the English page about the cards is there', facts > 0);
+  const factsText = facts > 0 ? await readFile(join(root, 'facts.en.html'), 'utf8') : '';
 
   // It is the printed sheet, so it carries that sheet's own photographs.
   const photos = await readdir(join(root, 'assets/facts'));
@@ -92,21 +111,22 @@ export default async function run({ check }) {
   for (const photo of photos) {
     check(`the card page shows ${photo}`, factsText.includes(`assets/facts/${photo}`));
   }
-  for (const heading of ['קלפי האטומים', 'קלפי המולקולות']) {
+  for (const heading of ['The atom cards', 'The molecule cards']) {
     check(`the card page carries the section ${heading}`, factsText.includes(heading));
   }
   check('the card page does not borrow the booklet styling',
     factsText.includes('css/facts.css') && !factsText.includes('css/rules.css'));
   check('the card page leads to the game and to the rules',
-    factsText.includes('href="./"') && factsText.includes('href="rules.html"'));
+    factsText.includes('href="./?lang=en"') && factsText.includes('href="rules.en.html"'));
   check('the rules page leads to the game and to the sheet',
     text.includes('./?lang=he') && text.includes('facts.pdf'));
-  check('the Hebrew sheet links out to Wikipedia',
-    (factsText.match(/he\.wikipedia\.org/g) || []).length > 30);
+  check('the English sheet links out to Grokipedia',
+    (factsText.match(/grokipedia\.com/g) || []).length > 30);
+  check('on paper the English sheet is set in two columns, like the printed one',
+    (await readFile(join(root, 'css/facts.css'), 'utf8')).includes('column-count: 2'));
 
   // --- the same in English ------------------------------------------------
   const inEnglish = {
-    'facts.en.html': ['grokipedia.com/page/', 'The atom cards', 'The molecule cards'],
     'rules.en.html': ['assets/cards/en/', 'The aim', 'The nuclear fusion card', 'rules.html'],
   };
   for (const [name, needles] of Object.entries(inEnglish)) {
@@ -116,15 +136,13 @@ export default async function run({ check }) {
     const body = size > 0 ? await readFile(join(root, name), 'utf8') : '';
     for (const needle of needles) check(`${name} carries ${needle}`, body.includes(needle));
   }
-  check('the English sheet links out to Grokipedia',
-    ((await readFile(join(root, 'facts.en.html'), 'utf8')).match(/grokipedia\.com/g) || []).length > 30);
   check('the Hebrew rules link to the English ones', text.includes('rules.en.html'));
 
   // --- the sheet as a file ------------------------------------------------
   for (const pdf of ['facts.pdf', 'facts.en.pdf']) {
     let size = -1;
     try { size = await sizeOf(pdf); } catch {}
-    check(`${pdf} was printed`, size > 100 * 1024, size);
+    check(`${pdf} is there`, size > 100 * 1024, size);
   }
   const entry = await readFile(join(root, 'index.html'), 'utf8');
   check('the game points at the printed sheet, not at the page',

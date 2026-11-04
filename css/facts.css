@@ -99,13 +99,29 @@ header.band a { color: #fff; }
 @page { size: letter; margin: 9mm 7mm; }
 
 @media print {
-  body { font-size: 11.5pt; background: var(--mols-bg); }
-  .inner { max-width: none; padding: 0 5mm; }
-  section { padding: 14px 0 18px; }
+  /* On paper the sheet is set in two columns, as it was printed, so the
+     photographs sit beside the text instead of pushing it down the page. */
+  body { font-size: 7.9pt; line-height: 1.34; background: var(--mols-bg); }
+  .inner { max-width: none; padding: 0 4mm; }
+  header.band { padding: 8px 0; }
+  h1 { font-size: 15pt; }
+  nav, .flags { display: none; }
+
+  section { padding: 8px 0 10px; }
   section.atoms { background: var(--atoms-bg); }
-  figure, table { break-inside: avoid; }
-  figure.wide img { max-width: min(430px, 68%); }
-  h1 { font-size: 20pt; }
-  h2 { font-size: 15pt; }
-  nav { display: none; }
+  /* The atoms fill the first page and the molecules open the next, as on the
+     printed sheet. */
+  section.molecules { break-before: page; }
+  section > .inner { column-count: 2; column-gap: 7mm; }
+  h2 { font-size: 12pt; margin: 0 0 9px; column-span: all; }
+  p { margin: 6px 0; orphans: 3; widows: 3; }
+
+  figure { margin: 0 0 9px; break-inside: avoid; }
+  figure.side { width: 38%; }
+  figure.start { margin-inline-end: 8px; }
+  figure.end { margin-inline-start: 8px; }
+  figure.wide { clear: none; width: auto; margin: 9px 0; }
+  figure.wide img { max-width: 100%; }
+  figure.wide figcaption { text-align: justify; }
+  figcaption { font-size: 7pt; line-height: 1.3; margin-top: 3px; }
 }

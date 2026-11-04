@@ -12,12 +12,14 @@ The printed game's own material is kept under `materials/` as it was supplied �
 the rules in Hebrew and English, the card faces in both languages, the backs,
 the booklet, the boxes and the fact sheets. The card images are built from it,
 `rules.html` and `rules.en.html` are the booklet set as one continuous page.
-`facts.html` and `facts.en.html` are the sheet about the cards — the physics,
-chemistry and biology behind them — and they are printed to `facts.pdf` and
-`facts.en.pdf`, which is what the game links to. Each keeps the colours and the
-layout of the printed thing it came from, with the terms linked out: the Hebrew
-to Wikipedia, the English to Grokipedia. The entry screen also links to the
-printed game at The Game Crafter.
+The sheet about the cards — the physics, chemistry and biology behind them — is
+what `facts.pdf` and `facts.en.pdf` hold, and that is what the game links to.
+In Hebrew it is the supplied file itself: `tools/link-facts-pdf.py` lays a link
+annotation over each term and changes nothing else, so the page is the printed
+page to the pixel. In English there is no such file, so `facts.en.html` sets the
+same text in the same colours and `tools/build-facts-pdf.mjs` prints it. The
+terms link out: the Hebrew to Wikipedia, the English to Grokipedia. The entry
+screen also links to the printed game at The Game Crafter.
 
 ## Playing
 
@@ -77,7 +79,7 @@ who has closed the page.
 | ------------------ | ----------------------------------------------------- |
 | `index.html`       | the three screens: name, lobby, game                  |
 | `rules.html`       | the rules, in the booklet's colours, and `rules.en.html` |
-| `facts.html`       | what each card is, printed to `facts.pdf`             |
+| `facts.en.html`    | what each card is, printed to `facts.en.pdf`          |
 | `css/style.css`    | styling                                               |
 | `css/rules.css`    | the rules page                                        |
 | `css/facts.css`    | the sheet about the cards                             |
@@ -117,10 +119,15 @@ need Python with Pillow, and poppler for the second:
 python3 tools/extract-booklet-art.py && python3 tools/extract-facts-art.py
 ```
 
-After changing either sheet about the cards, print it again:
+The Hebrew sheet is the supplied file with links laid over it; the English one
+is printed from its page. After changing either, build it again:
 
 ```bash
-node tools/build-facts-pdf.mjs
+python3 tools/link-facts-pdf.py    # facts.pdf, the supplied sheet + links
+```
+
+```bash
+node tools/build-facts-pdf.mjs     # facts.en.pdf, printed from facts.en.html
 ```
 
 ## Configuration
