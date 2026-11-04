@@ -85,6 +85,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   const srcs = await host.$$eval('#hand-atoms img', (n) => n.map((i) => i.getAttribute('src')));
   check('a hand is drawn with the printed card art',
     srcs.length === 6 && srcs.every((s) => s.startsWith('assets/cards/he/atom-')), srcs[0]);
+  await host.waitForFunction(
+    () => [...document.querySelectorAll('#hand-atoms img')].every((i) => i.complete && i.naturalWidth > 0),
+    null, { timeout: 15000 }).catch(() => {});
   const loaded = await host.$$eval('#hand-atoms img', (n) => n.every((i) => i.complete && i.naturalWidth > 0));
   check('the card pictures actually load', loaded);
   check('all four piles are shown', (await host.$$('#decks .pile')).length === 4);
