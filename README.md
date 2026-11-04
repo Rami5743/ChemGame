@@ -2,7 +2,9 @@
 
 An online version of the Atoms & Molecules card game: a static page with no
 server code of its own. Open it, start a game, send the link to the people you
-want to play with.
+want to play with. It is played in Hebrew or in English — the two flags in the
+header switch between them, and each player keeps his own choice, so the link
+carries no language.
 
 Live at https://rami5743.github.io/ChemGame/
 
@@ -77,10 +79,11 @@ who has closed the page.
 | `css/rules.css`    | the rules page                                        |
 | `css/facts.css`    | the sheet about the cards                             |
 | `js/cards.js`      | the printed deck as a catalogue, and the art paths    |
+| `js/i18n.js`       | every word the game says, in both languages           |
 | `js/rules.js`      | the game itself — no network, no DOM                  |
 | `js/net.js`        | broker connection, topics, retained messages          |
 | `js/app.js`        | screens, rendering, host bookkeeping                  |
-| `assets/cards/he`  | the card images the page serves                       |
+| `assets/cards`     | the card images the page serves, one folder a language |
 | `tools/`           | builds those images from `materials/`                 |
 | `test/`            | the test run, with its own broker and static server   |
 
@@ -132,5 +135,5 @@ and a shuffle of its own.
 - **A player who disconnects on his own turn holds the table up.** He is marked
   in the seat list, and the game waits for him. The one place that does not
   wait is the take-back, where the host answers for him.
-- **Hebrew only.** The English card set is in `materials/` and the art pipeline
-  is ready for a second folder; the page does not offer the switch yet.
+- **A word added in one language must be added in the other.** `js/i18n.js`
+  holds both; a key missing from English falls back to the Hebrew.

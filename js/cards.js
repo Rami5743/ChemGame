@@ -2,14 +2,14 @@
 // 72 atom cards of 5 kinds, 36 molecule cards of 19 kinds.
 
 export const ELEMENTS = {
-  H: { symbol: 'H', z: 1, name: 'מימן' },
-  C: { symbol: 'C', z: 6, name: 'פחמן' },
-  N: { symbol: 'N', z: 7, name: 'חנקן' },
-  O: { symbol: 'O', z: 8, name: 'חמצן' },
+  H: { symbol: 'H', z: 1, name: { he: 'מימן', en: 'Hydrogen' } },
+  C: { symbol: 'C', z: 6, name: { he: 'פחמן', en: 'Carbon' } },
+  N: { symbol: 'N', z: 7, name: { he: 'חנקן', en: 'Nitrogen' } },
+  O: { symbol: 'O', z: 8, name: { he: 'חמצן', en: 'Oxygen' } },
 };
 
 export const FUSION = 'FUSION';
-export const FUSION_CARD = { symbol: 'Fue', name: 'היתוך גרעיני' };
+export const FUSION_CARD = { symbol: 'Fue', name: { he: 'היתוך גרעיני', en: 'Nuclear fusion' } };
 
 export const ATOM_COUNTS = { H: 38, C: 12, N: 3, O: 16, [FUSION]: 3 };
 
@@ -21,25 +21,25 @@ export const ALKANE_MAX = 8;
 export const alkaneFormula = (n) => ({ C: n, H: 2 * n + 2 });
 
 export const MOLECULES = {
-  ethanol: { name: 'אתנול', art: '1', formula: { C: 2, H: 6, O: 1 } },
-  urea: { name: 'שתנן', art: '2', formula: { C: 1, H: 4, N: 2, O: 1 } },
-  ammonia: { name: 'אמוניה', art: '3', formula: { N: 1, H: 3 } },
-  acetone: { name: 'אצטון', art: '4', formula: { C: 3, H: 6, O: 1 } },
-  oxygen: { name: 'חמצן', art: '5', formula: { O: 2 } },
-  propane: { name: 'פרופאן', art: '6', formula: { C: 3, H: 8 } },
-  methane: { name: 'מתאן', art: '7', formula: { C: 1, H: 4 } },
-  alkanes: { name: 'אלקאנים', art: '8', special: 'alkanes' },
-  nitrogen: { name: 'חנקן', art: '9', formula: { N: 2 } },
-  water: { name: 'מים', art: '10', formula: { H: 2, O: 1 } },
-  aceticAcid: { name: 'חומצה אצטית', art: '11', formula: { C: 2, H: 4, O: 2 } },
-  hydrogen: { name: 'מימן', art: '12', formula: { H: 2 } },
-  hydrazine: { name: 'הידרזין', art: '13', formula: { N: 2, H: 4 } },
-  glycine: { name: 'גליצין', art: '14', formula: { C: 2, H: 5, N: 1, O: 2 } },
-  butane: { name: 'בוטאן', art: '15', formula: { C: 4, H: 10 } },
-  carbonDioxide: { name: 'פחמן דו־חמצני', art: '16', formula: { C: 1, O: 2 } },
-  ethane: { name: 'אתאן', art: '17', formula: { C: 2, H: 6 } },
-  methanol: { name: 'מתנול', art: '18', formula: { C: 1, H: 4, O: 1 } },
-  glucose: { name: 'גלוקוז', art: 'Glucose', formula: { C: 6, H: 12, O: 6 } },
+  ethanol: { name: { he: 'אתנול', en: 'Ethanol' }, art: '1', formula: { C: 2, H: 6, O: 1 } },
+  urea: { name: { he: 'שתנן', en: 'Urea' }, art: '2', formula: { C: 1, H: 4, N: 2, O: 1 } },
+  ammonia: { name: { he: 'אמוניה', en: 'Ammonia' }, art: '3', formula: { N: 1, H: 3 } },
+  acetone: { name: { he: 'אצטון', en: 'Acetone' }, art: '4', formula: { C: 3, H: 6, O: 1 } },
+  oxygen: { name: { he: 'חמצן', en: 'Oxygen' }, art: '5', formula: { O: 2 } },
+  propane: { name: { he: 'פרופאן', en: 'Propane' }, art: '6', formula: { C: 3, H: 8 } },
+  methane: { name: { he: 'מתאן', en: 'Methane' }, art: '7', formula: { C: 1, H: 4 } },
+  alkanes: { name: { he: 'אלקאנים', en: 'Alkanes' }, art: '8', special: 'alkanes' },
+  nitrogen: { name: { he: 'חנקן', en: 'Nitrogen' }, art: '9', formula: { N: 2 } },
+  water: { name: { he: 'מים', en: 'Water' }, art: '10', formula: { H: 2, O: 1 } },
+  aceticAcid: { name: { he: 'חומצה אצטית', en: 'Acetic acid' }, art: '11', formula: { C: 2, H: 4, O: 2 } },
+  hydrogen: { name: { he: 'מימן', en: 'Hydrogen' }, art: '12', formula: { H: 2 } },
+  hydrazine: { name: { he: 'הידרזין', en: 'Hydrazine' }, art: '13', formula: { N: 2, H: 4 } },
+  glycine: { name: { he: 'גליצין', en: 'Glycine' }, art: '14', formula: { C: 2, H: 5, N: 1, O: 2 } },
+  butane: { name: { he: 'בוטאן', en: 'Butane' }, art: '15', formula: { C: 4, H: 10 } },
+  carbonDioxide: { name: { he: 'פחמן דו־חמצני', en: 'Carbon dioxide' }, art: '16', formula: { C: 1, O: 2 } },
+  ethane: { name: { he: 'אתאן', en: 'Ethane' }, art: '17', formula: { C: 2, H: 6 } },
+  methanol: { name: { he: 'מתנול', en: 'Methanol' }, art: '18', formula: { C: 1, H: 4, O: 1 } },
+  glucose: { name: { he: 'גלוקוז', en: 'Glucose' }, art: 'Glucose', formula: { C: 6, H: 12, O: 6 } },
 };
 
 // Two of each, except the two that were printed once.
@@ -57,11 +57,15 @@ export const DECK_SIZE = {
 
 // Built from materials/ by tools/build-cards.mjs. Hebrew only for now; a
 // second language becomes a second folder beside this one.
-const ART_DIR = 'assets/cards/he';
+const ART_DIR = (lang) => `assets/cards/${lang === 'en' ? 'en' : 'he'}`;
 
 export const cardArt = {
-  molecule: (id) => `${ART_DIR}/mol-${id}.webp`,
-  atom: (el) => `${ART_DIR}/atom-${el}.webp`,
-  atomBack: () => `${ART_DIR}/back-atom.webp`,
-  moleculeBack: () => `${ART_DIR}/back-molecule.webp`,
+  molecule: (id, lang) => `${ART_DIR(lang)}/mol-${id}.webp`,
+  atom: (el, lang) => `${ART_DIR(lang)}/atom-${el}.webp`,
+  atomBack: (lang) => `${ART_DIR(lang)}/back-atom.webp`,
+  moleculeBack: (lang) => `${ART_DIR(lang)}/back-molecule.webp`,
 };
+
+// The name a card carries, in the language asked for.
+export const nameIn = (named, lang) =>
+  typeof named.name === 'string' ? named.name : named.name[lang] || named.name.he;

@@ -10,6 +10,28 @@ export default async function run({ check }) {
   let total = 0;
   let biggest = 0;
 
+  // Both printed languages, and nothing left over in either folder.
+  for (const lang of ['he', 'en']) {
+    const files = await readdir(join(root, 'assets/cards', lang));
+    check(`the ${lang} deck holds exactly the cards of the catalogue`,
+      files.length === Object.keys(MOLECULES).length + Object.keys(ELEMENTS).length + 3, files.length);
+    for (const id of Object.keys(MOLECULES)) {
+      let size = -1;
+      try { size = await sizeOf(cardArt.molecule(id, lang)); } catch {}
+      check(`the ${lang} ${id} card has a picture`, size > 0, cardArt.molecule(id, lang));
+    }
+    for (const el of [...Object.keys(ELEMENTS), FUSION]) {
+      let size = -1;
+      try { size = await sizeOf(cardArt.atom(el, lang)); } catch {}
+      check(`the ${lang} ${el} card has a picture`, size > 0, cardArt.atom(el, lang));
+    }
+    for (const [what, path] of [['atom', cardArt.atomBack(lang)], ['molecule', cardArt.moleculeBack(lang)]]) {
+      let size = -1;
+      try { size = await sizeOf(path); } catch {}
+      check(`the ${lang} ${what} back has a picture`, size > 0, path);
+    }
+  }
+
   for (const id of Object.keys(MOLECULES)) {
     const path = cardArt.molecule(id);
     let size = -1;
@@ -80,7 +102,5 @@ export default async function run({ check }) {
   check('the rules page leads to the game and to the cards',
     text.includes('href="./"') && text.includes('href="facts.html"'));
 
-  const files = await readdir(join(root, 'assets/cards/he'));
-  check('the folder holds exactly the cards of the catalogue',
-    files.length === Object.keys(MOLECULES).length + Object.keys(ELEMENTS).length + 3, files.length);
+
 }

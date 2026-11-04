@@ -1,4 +1,5 @@
 import { createBus, brokerList } from './net.js';
+import { t, lang, setLang, applyStaticWords } from './i18n.js';
 import { newGame, apply, publicView, privateView } from './rules.js';
 import { layoutFor } from './layouts.js';
 import {
@@ -9,6 +10,7 @@ import {
   ALKANE_MIN,
   ALKANE_MAX,
   cardArt,
+  nameIn,
 } from './cards.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,7 +35,7 @@ let moveSeq = 0;
 const awaitingMove = new Map();
 let noHostTimer = null;
 
-const seatName = (n) => `שחקן ${n}`;
+const seatName = (n) => t('seat.name', { n });
 
 function clientId() {
   let v = sessionStorage.getItem('cg_id');
@@ -56,7 +58,11 @@ function newRoomId() {
 }
 
 function shareLink() {
-  return `${location.origin}${location.pathname}${location.search}#${room}`;
+  // Each player keeps the language he chose, so it does not travel in a link.
+  const params = new URLSearchParams(location.search);
+  params.delete('lang');
+  const query = params.toString();
+  return `${location.origin}${location.pathname}${query ? '?' + query : ''}#${room}`;
 }
 
 function show(which) {
@@ -66,9 +72,8 @@ function show(which) {
 }
 
 function setStatus(state) {
-  const labels = { on: 'מחובר', wait: 'מתחבר', err: 'תקלת חיבור', off: 'מנותק' };
   $('status').dataset.state = state;
-  $('status').textContent = labels[state] || state;
+  $('status').textContent = t(`status.${state}`);
 }
 
 // Tapping the chip says which brokers answered and which did not.
@@ -87,8 +92,8 @@ function initEntry() {
     return;
   }
 
-  $('name-title').textContent = joining ? 'הצטרפות למשחק' : 'משחק חדש';
-  $('name-go').textContent = joining ? 'הצטרף' : 'צור משחק';
+  $('name-title').textContent = t(joining ? 'entry.joinTitle' : 'entry.newTitle');
+  $('name-go').textContent = t(joining ? 'entry.join' : 'entry.create');
   $('name-input').value = localStorage.getItem('cg_name') || '';
   $('name-fresh').classList.toggle('hidden', !joining);
   $('name-fresh').addEventListener('click', () => {
@@ -147,7 +152,7 @@ function hostFanout(urls) {
           up.delete(url);
         }
         setStatus(up.size ? 'on' : 'wait');
-        $('status').title = up.size ? [...up].join('\n') : 'אין חיבור לאף שרת הודעות';
+        $('status').title = up.size ? [...up].join('\n') : t('links.none');
       },
     }));
   }
@@ -220,7 +225,7 @@ function playerRelay(urls) {
 /* ---------- which brokers answered ---------- */
 
 const links = new Map();
-const LINK_WORD = { on: 'מחובר', wait: 'מנסה', err: 'נכשל', dead: 'לא ענה' };
+const LINK_STATES = ['on', 'wait', 'err', 'dead'];
 let linksOpen = false;
 
 function noteLink(url, state) {
@@ -233,14 +238,14 @@ function showLinks() {
   const box = $('alert');
   box.textContent = '';
   const title = document.createElement('div');
-  title.textContent = 'החיבור לשרתי ההודעות:';
+  title.textContent = t('links.title');
   box.append(title);
   for (const [url, state] of links) {
     const row = document.createElement('div');
     row.className = 'link-row';
     const word = document.createElement('span');
     word.className = 'link-state';
-    word.textContent = LINK_WORD[state] || state;
+    word.textContent = LINK_STATES.includes(state) ? t(`links.${state}`) : state;
     const where = document.createElement('span');
     where.dir = 'ltr';
     where.className = 'link-url';
@@ -261,8 +266,7 @@ function noBroker() {
   setStatus('err');
   $('alert').classList.remove('hidden');
   $('alert').textContent =
-    'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת. יש רשתות שחוסמות את החיבור. ' +
-    'נסה רשת אחרת, למשל לעבור מרשת סלולרית לרשת אלחוטית או להפך.';
+    t('alert.noBroker');
 }
 
 function connect() {
@@ -298,13 +302,12 @@ function connect() {
       const stale = lastStateAt && Date.now() - lastStateAt > STALE_MS;
       $('alert').classList.toggle('hidden', !stale);
       if (stale) {
-        $('alert').textContent = 'המארח אינו מחובר. המשחק ממתין לו, או שאפשר לפתוח משחק חדש.';
+        $('alert').textContent = t('alert.hostGone');
       }
     }, 4000);
     noHostTimer = setTimeout(() => {
       if (!snapshot) {
-        $('lobby-note').textContent =
-          'לא נמצא מארח לחדר הזה. ייתכן שהמארח סגר את הדף, או שהקישור אינו נכון.';
+        $('lobby-note').textContent = t('lobby.noHost');
         $('lobby-note').classList.add('error');
       }
     }, NO_HOST_MS);
@@ -334,14 +337,14 @@ function connect() {
   $('host-controls').classList.toggle('hidden', !isHost);
 
   show('lobby');
-  $('lobby-note').textContent = 'מתחבר לשרת ההודעות…';
+  $('lobby-note').textContent = t('lobby.connecting');
   render();
 }
 
 function copyLink() {
   const done = () => {
-    $('copy').textContent = 'הועתק';
-    setTimeout(() => ($('copy').textContent = 'העתק'), 1500);
+    $('copy').textContent = t('lobby.copied');
+    setTimeout(() => ($('copy').textContent = t('lobby.copy')), 1500);
   };
   navigator.clipboard?.writeText(shareLink()).then(done, () => {
     $('share').select();
@@ -371,12 +374,13 @@ function onMessage(sub, msg) {
       myCards = msg;
       render();
     } else if (msg.t === 'rejected') {
+      const said = refusal(msg);
       const resolve = awaitingMove.get(msg.seq);
       if (resolve) {
         awaitingMove.delete(msg.seq);
-        resolve(msg.error);
+        resolve(said);
       }
-      showReject(msg.error);
+      showReject(said);
     }
   } else if (sub === 'act' && host) {
     onAct(msg);
@@ -461,7 +465,7 @@ function onAct(msg) {
     p.last = Date.now();
     const r = apply(host.game, msg.id, msg.move || {});
     if (!r.ok) {
-      bus.toPlayer(msg.id, { t: 'rejected', seq: msg.seq, error: r.error }, false);
+      bus.toPlayer(msg.id, { t: 'rejected', seq: msg.seq, error: r.error, z: r.z, el: r.el }, false);
       return;
     }
     sendHands();
@@ -503,8 +507,8 @@ function readDeal(seats, atomsEl = 'set-atoms', molsEl = 'set-mols') {
       return {
         error:
           kind === 'atoms'
-            ? `אין מספיק קלפי אטום בחפיסה. יש ${DECK_SIZE.atoms}, ולכן לכל היותר ${Math.floor(DECK_SIZE.atoms / seats)} לכל שחקן.`
-            : `אין מספיק קלפי מולקולה בחפיסה. יש ${DECK_SIZE.molecules}, ולכן לכל היותר ${Math.floor(DECK_SIZE.molecules / seats)} לכל שחקן.`,
+            ? t('lobby.tooManyAtoms', { deck: DECK_SIZE.atoms, max: Math.floor(DECK_SIZE.atoms / seats) })
+            : t('lobby.tooManyMols', { deck: DECK_SIZE.molecules, max: Math.floor(DECK_SIZE.molecules / seats) }),
       };
     }
   }
@@ -527,7 +531,7 @@ function lobbyError(text) {
 function startGame() {
   if (!host || host.locked) return;
   if (host.order.length < 2) {
-    lobbyError('צריך לפחות שני שחקנים כדי להתחיל.');
+    lobbyError(t('lobby.needTwo'));
     return;
   }
   const { deal, error } = readDeal(host.order.length);
@@ -582,13 +586,20 @@ function sendMove(move) {
   const answer = new Promise((resolve) => {
     awaitingMove.set(seq, resolve);
     setTimeout(() => {
-      if (awaitingMove.delete(seq)) resolve('אין תשובה מהמארח');
+      if (awaitingMove.delete(seq)) resolve(t('move.noAnswer'));
     }, 8000);
   });
   const msg = { t: 'move', id: me.id, seq, move };
   if (host) onAct(msg);
   else bus.act(msg);
   return answer;
+}
+
+// The engine refuses in codes; this says it in the player's own language.
+function refusal(msg) {
+  const parts = { z: msg.z, min: ALKANE_MIN, max: ALKANE_MAX };
+  if (msg.el) parts.el = nameIn(ELEMENTS[msg.el], lang());
+  return t(`err.${msg.error}`, parts);
 }
 
 function showReject(text) {
@@ -603,16 +614,11 @@ function showReject(text) {
 
 /* ---------- rendering ---------- */
 
-const PROMPT = {
-  opening: 'תורך לפתוח מולקולה, או למשוך חמישה קלפים ולבחור אחד.',
-  building: 'תורך.',
-  picking: 'בחר קלף אחד מתוך החמישה.',
-  takeback: 'אפשר לקחת בחזרה קלף אטום אחד שהנחת.',
-};
+const PROMPT = (phase) => t(`prompt.${phase}`);
 
 function nameOf(id) {
   const row = (snapshot?.order || []).find((p) => p.id === id);
-  return row ? row.name : 'שחקן';
+  return row ? row.name : t('game.somebody');
 }
 
 /* ---------- what the player has selected ---------- */
@@ -641,26 +647,14 @@ function currentStep() {
   return 'atoms';
 }
 
-const STEP_PROMPT = {
-  molecule: {
-    open: 'בחר מהיד את קלף המולקולה שתרצה לפתוח בה.',
-    swap: 'בחר מהיד את קלף המולקולה שיחליף את זו שעל השולחן.',
-  },
-  place: 'תורך. בחר קלף אטום והוא יונח.',
-  withMolecule: 'בחר קלף אטום, והמהלך ייעשה.',
-  alkane: 'הכרז על מספר אטומי הפחמן, ואז בחר קלף אטום.',
-  fusing: 'בחר קלפי אטומים להיתוך.',
-  table: 'בחר אטום שהנחת בעצמך, כדי לקחת אותו בחזרה.',
-};
-
 function stepPrompt() {
   if (!chosen.mode) return null;
-  if (fusionChosen()) return STEP_PROMPT.fusing;
+  if (fusionChosen()) return t('step.fusing');
   const step = currentStep();
-  if (step === 'molecule') return STEP_PROMPT.molecule[chosen.mode];
-  if (step === 'table') return STEP_PROMPT.table;
-  if (chosen.mode === 'place') return STEP_PROMPT.place;
-  return STEP_PROMPT[isAlkane(chosenMoleculeId()) ? 'alkane' : 'withMolecule'];
+  if (step === 'molecule') return t(chosen.mode === 'swap' ? 'step.moleculeSwap' : 'step.moleculeOpen');
+  if (step === 'table') return t('step.table');
+  if (chosen.mode === 'place') return t('step.place');
+  return t(isAlkane(chosenMoleculeId()) ? 'step.alkane' : 'step.withMolecule');
 }
 
 async function act(move) {
@@ -699,10 +693,14 @@ function cardButton({ src, alt, pickable, chosen: isChosen, dim, badge, onClick,
 }
 
 const atomCard = (el, opts = {}) =>
-  cardButton({ src: cardArt.atom(el), alt: el === FUSION ? FUSION_CARD.name : ELEMENTS[el].name, ...opts });
+  cardButton({
+    src: cardArt.atom(el, lang()),
+    alt: nameIn(el === FUSION ? FUSION_CARD : ELEMENTS[el], lang()),
+    ...opts,
+  });
 
 const moleculeCard = (id, opts = {}) =>
-  cardButton({ src: cardArt.molecule(id), alt: MOLECULES[id].name, ...opts });
+  cardButton({ src: cardArt.molecule(id, lang()), alt: nameIn(MOLECULES[id], lang()), ...opts });
 
 function button(label, act, onClick, enabled = true, cls = '') {
   const b = document.createElement('button');
@@ -758,22 +756,22 @@ function renderLobby() {
     li.append(seat, who);
 
     if (p.id === snapshot.host) {
-      const t = document.createElement('span');
-      t.className = 'tag';
-      t.textContent = 'מארח';
-      li.append(t);
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = t('seat.host');
+      li.append(tag);
     }
     if (p.id === me.id) {
-      const t = document.createElement('span');
-      t.className = 'tag me';
-      t.textContent = 'אתה';
-      li.append(t);
+      const tag = document.createElement('span');
+      tag.className = 'tag me';
+      tag.textContent = t('seat.you');
+      li.append(tag);
     }
     if (!p.online) {
-      const t = document.createElement('span');
-      t.className = 'tag off';
-      t.textContent = 'מנותק';
-      li.append(t);
+      const tag = document.createElement('span');
+      tag.className = 'tag off';
+      tag.textContent = t('seat.offline');
+      li.append(tag);
     }
 
     if (isHost) {
@@ -797,11 +795,11 @@ function renderLobby() {
 
   $('start').disabled = snapshot.order.length < 2;
   const d = snapshot.deal || DEFAULT_DEAL;
-  $('deal-note').textContent = `לכל שחקן יחולקו: ${d.atoms} קלפי אטום, ${d.molecules} קלפי מולקולה.`;
+  $('deal-note').textContent = t('lobby.deal', { atoms: d.atoms, molecules: d.molecules });
   if (!$('lobby-note').classList.contains('error')) {
     $('lobby-note').textContent = isHost
-      ? 'ממתין לשחקנים. אתה המארח.'
-      : 'ממתין שהמארח יתחיל את המשחק.';
+      ? t('lobby.hostWaiting')
+      : t('lobby.guestWaiting');
   }
 }
 
@@ -829,15 +827,16 @@ function renderBanner(g, inGame, waiting) {
   const banner = $('turn-banner');
   banner.className = 'banner';
   if (!inGame) {
-    banner.textContent = 'המשחק כבר התחיל והחדר נעול. אתה צופה בלבד.';
+    banner.textContent = t('game.spectator');
   } else if (g.winner) {
-    banner.textContent = g.winner === me.id ? 'ניצחת.' : `${nameOf(g.winner)} ניצח.`;
+    banner.textContent =
+      g.winner === me.id ? t('game.youWon') : t('game.someoneWon', { name: nameOf(g.winner) });
     banner.classList.add('over');
   } else if (waiting.includes(me.id)) {
-    banner.textContent = stepPrompt() || PROMPT[g.phase] || 'תורך.';
+    banner.textContent = stepPrompt() || PROMPT(g.phase);
     banner.classList.add('mine');
   } else {
-    banner.textContent = `ממתינים ל${nameOf(waiting[0])}.`;
+    banner.textContent = t('game.waitingFor', { name: nameOf(waiting[0]) });
   }
 }
 
@@ -855,12 +854,12 @@ function renderSeats(g, waiting) {
 
     const who = document.createElement('span');
     who.className = 'who';
-    who.textContent = p.name + (p.id === me.id ? ' (אתה)' : '');
+    who.textContent = p.name + (p.id === me.id ? ` (${t('seat.you')})` : '');
 
     const count = document.createElement('span');
     count.className = 'count';
     count.textContent = `${p.atoms} · ${p.molecules}`;
-    count.title = 'קלפי אטום · קלפי מולקולה';
+    count.title = t('seat.counts');
 
     li.append(seat, who, count);
     players.append(li);
@@ -874,13 +873,13 @@ function renderTable(g, myMove) {
     slot.append(
       moleculeCard(g.area.molecule, {
         badge: g.area.alkaneN ? alkaneLabel(g.area.alkaneN) : null,
-        title: MOLECULES[g.area.molecule].name,
+        title: nameIn(MOLECULES[g.area.molecule], lang()),
       })
     );
   } else {
     const e = document.createElement('span');
     e.className = 'empty';
-    e.textContent = 'אין מולקולה על השולחן.';
+    e.textContent = t('game.noMolecule');
     slot.append(e);
   }
 
@@ -927,7 +926,7 @@ function unitEl(u, takingBack) {
     return atomCard(c.el, {
       id: c.id,
       pickable: mine,
-      title: mine ? 'קח בחזרה' : nameOf(u.by),
+      title: mine ? t('game.takeBack') : nameOf(u.by),
       onClick: () => act({ t: 'takeBack', card: c.id }),
     });
   };
@@ -939,7 +938,7 @@ function unitEl(u, takingBack) {
 
   const label = document.createElement('span');
   label.className = 'sum';
-  label.textContent = `${ELEMENTS[u.el].name} ${ELEMENTS[u.el].z}`;
+  label.textContent = `${nameIn(ELEMENTS[u.el], lang())} ${ELEMENTS[u.el].z}`;
   wrap.append(label);
 
   if (mineNow) {
@@ -969,7 +968,7 @@ function emptySlotEl(el) {
   const d = document.createElement('div');
   d.className = 'slot-empty';
   d.textContent = ELEMENTS[el].symbol;
-  d.title = `חסר ${ELEMENTS[el].name}`;
+  d.title = t('game.missing', { el: nameIn(ELEMENTS[el], lang()) });
   return d;
 }
 
@@ -984,13 +983,13 @@ function pile(src, label, count) {
   } else {
     const blank = document.createElement('div');
     blank.className = 'blank';
-    blank.textContent = 'ריקה';
+    blank.textContent = t('deck.empty');
     d.append(blank);
   }
-  const t = document.createElement('span');
-  t.className = 'pile-label';
-  t.textContent = `${label}: ${count}`;
-  d.append(t);
+  const caption = document.createElement('span');
+  caption.className = 'pile-label';
+  caption.textContent = `${label}: ${count}`;
+  d.append(caption);
   return d;
 }
 
@@ -998,10 +997,10 @@ function renderDecks(g) {
   const decks = $('decks');
   decks.textContent = '';
   decks.append(
-    pile(cardArt.atomBack(), 'קופת אטומים', g.atomDeck),
-    pile(g.atomDiscardTop ? cardArt.atom(g.atomDiscardTop) : null, 'אטומים משומשים', g.atomDiscard),
-    pile(cardArt.moleculeBack(), 'קופת מולקולות', g.molDeck),
-    pile(g.molDiscardTop ? cardArt.molecule(g.molDiscardTop) : null, 'מולקולות משומשות', g.molDiscard)
+    pile(cardArt.atomBack(lang()), t('deck.atoms'), g.atomDeck),
+    pile(g.atomDiscardTop ? cardArt.atom(g.atomDiscardTop, lang()) : null, t('deck.atomsUsed'), g.atomDiscard),
+    pile(cardArt.moleculeBack(lang()), t('deck.molecules'), g.molDeck),
+    pile(g.molDiscardTop ? cardArt.molecule(g.molDiscardTop, lang()) : null, t('deck.moleculesUsed'), g.molDiscard)
   );
 }
 
@@ -1021,7 +1020,7 @@ function renderHand(g, myMove) {
         pickable: molTurn,
         dim: !!step && !molTurn,
         chosen: chosen.molecule === c.id,
-        title: MOLECULES[c.mol].name,
+        title: nameIn(MOLECULES[c.mol], lang()),
         onClick: () => {
           chosen.molecule = chosen.molecule === c.id ? null : c.id;
           render();
@@ -1095,9 +1094,9 @@ function renderActions(g, myMove) {
     if (!isHost || $('again-atoms')) return;
     bar.textContent = '';
     bar.append(
-      numberField('again-atoms', 'קלפי אטום לכל שחקן', snapshot.deal.atoms, 24),
-      numberField('again-mols', 'קלפי מולקולה לכל שחקן', snapshot.deal.molecules, 8),
-      button('משחק חדש', 'again', startAgain)
+      numberField('again-atoms', t('lobby.atomsPer'), snapshot.deal.atoms, 24),
+      numberField('again-mols', t('lobby.molsPer'), snapshot.deal.molecules, 8),
+      button(t('act.again'), 'again', startAgain)
     );
     return;
   }
@@ -1111,9 +1110,9 @@ function renderActions(g, myMove) {
       return;
     }
     bar.append(
-      button('פתח מולקולה', 'open', () => setMode('open')),
-      button('בחר מולקולה', 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
-      button('בחר אטום', 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
+      button(t('act.open'), 'open', () => setMode('open')),
+      button(t('act.fiveMolecules'), 'fiveMolecules', () => act({ t: 'drawFive', kind: 'molecules' })),
+      button(t('act.fiveAtoms'), 'fiveAtoms', () => act({ t: 'drawFive', kind: 'atoms' }))
     );
     return;
   }
@@ -1124,21 +1123,21 @@ function renderActions(g, myMove) {
       return;
     }
     bar.append(
-      button('הנח', 'place', () => render(), true, 'active'),
-      button('החלף מולקולה', 'swap', () => setMode('swap'))
+      button(t('act.place'), 'place', () => render(), true, 'active'),
+      button(t('act.swap'), 'swap', () => setMode('swap'))
     );
     if (g.atomDeck || g.atomDiscard) {
-      bar.append(button('משוך קלף אטום', 'draw', () => act({ t: 'drawAtom' })));
+      bar.append(button(t('act.draw'), 'draw', () => act({ t: 'drawAtom' })));
     } else {
-      bar.append(button('ויתור על התור', 'pass', () => act({ t: 'pass' })));
+      bar.append(button(t('act.pass'), 'pass', () => act({ t: 'pass' })));
     }
     return;
   }
 
   if (g.phase === 'takeback') {
     bar.append(
-      button('קח קלף בחזרה', 'takeOne', () => setMode('takeOne')),
-      button('לא לקחת כלום', 'takeNothing', () => act({ t: 'takeBack', card: null }))
+      button(t('act.takeOne'), 'takeOne', () => setMode('takeOne')),
+      button(t('act.takeNothing'), 'takeNothing', () => act({ t: 'takeBack', card: null }))
     );
   }
 }
@@ -1152,7 +1151,7 @@ function renderModeBar(bar) {
   if (isAlkane(molId)) {
     const field = document.createElement('label');
     field.className = 'num';
-    field.textContent = 'אטומי פחמן';
+    field.textContent = t('field.carbons');
     const input = document.createElement('input');
     input.type = 'number';
     input.id = 'alkane-n';
@@ -1168,11 +1167,11 @@ function renderModeBar(bar) {
   }
   if (fusionChosen()) {
     bar.append(
-      button('אשר', 'confirm', () => act(moveFor(atoms)), atoms.length > 1)
+      button(t('act.confirm'), 'confirm', () => act(moveFor(atoms)), atoms.length > 1)
     );
   }
 
-  bar.append(button('בטל', 'cancel', () => {
+  bar.append(button(t('act.cancel'), 'cancel', () => {
     clearChoice();
     render();
   }));
@@ -1187,8 +1186,8 @@ function renderOverlay(g) {
 
   $('overlay-title').textContent =
     pick.kind === 'atoms'
-      ? 'בחר קלף אטום אחד מתוך החמישה. השאר יושלכו.'
-      : 'בחר קלף מולקולה אחד מתוך החמישה. השאר יושלכו.';
+      ? t('overlay.pickAtom')
+      : t('overlay.pickMolecule');
   const box = $('overlay-cards');
   box.textContent = '';
   for (const c of pick.cards) {
@@ -1207,4 +1206,13 @@ window.chemgame = {
   me: () => ({ ...me }),
 };
 
+function initLanguage() {
+  applyStaticWords();
+  for (const b of document.querySelectorAll('.flag')) {
+    b.classList.toggle('active', b.dataset.lang === lang());
+    b.addEventListener('click', () => setLang(b.dataset.lang));
+  }
+}
+
+initLanguage();
 initEntry();

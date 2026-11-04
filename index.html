@@ -11,9 +11,17 @@
 <header>
   <h1>ChemGame</h1>
   <div class="head-end">
-    <a class="rules" href="rules.html">חוקי המשחק</a>
-    <a class="rules" href="facts.html" target="_blank" rel="noopener">על הקלפים</a>
-    <div id="status" class="status" data-state="off">מנותק</div>
+    <div class="langs">
+      <button class="flag" data-lang="he" data-t-title="nav.he" aria-label="עברית">
+        <svg viewBox="0 0 33 24" aria-hidden="true"><rect width="33" height="24" fill="#fff"/><rect y="2.5" width="33" height="3" fill="#0038b8"/><rect y="18.5" width="33" height="3" fill="#0038b8"/><g fill="none" stroke="#0038b8" stroke-width="1.1"><path d="M16.5 7.6l3.4 5.9h-6.8z"/><path d="M16.5 16.4l-3.4-5.9h6.8z"/></g></svg>
+      </button>
+      <button class="flag" data-lang="en" data-t-title="nav.en" aria-label="English">
+        <svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="ukclip"><rect width="60" height="30"/></clipPath><g clip-path="url(#ukclip)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#c8102e" stroke-width="3.5"/><path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30 M0,15 H60" stroke="#c8102e" stroke-width="6"/></g></svg>
+      </button>
+    </div>
+    <a class="rules" href="rules.html" data-t="nav.rules">חוקי המשחק</a>
+    <a class="rules" id="facts-top" href="facts.html" target="_blank" rel="noopener" data-t="nav.facts">על הקלפים</a>
+    <div id="status" class="status" data-state="off" data-t="status.off">מנותק</div>
   </div>
 </header>
 
@@ -23,51 +31,51 @@
 
   <section id="view-name" class="view">
     <h2 id="name-title">משחק חדש</h2>
-    <label for="name-input">השם שלך, אם בא לך</label>
+    <label for="name-input" data-t="entry.nameLabel">השם שלך, אם בא לך</label>
     <div class="row">
-      <input id="name-input" maxlength="16" autocomplete="off" placeholder="אפשר להשאיר ריק">
+      <input id="name-input" maxlength="16" autocomplete="off" data-t-ph="entry.namePh">
       <button id="name-go" class="primary">צור משחק</button>
     </div>
     <p id="name-note" class="note"></p>
-    <p><button id="name-fresh" class="hidden">פתח משחק חדש במקום</button></p>
+    <p><button id="name-fresh" class="hidden" data-t="entry.fresh">פתח משחק חדש במקום</button></p>
     <p class="note">
-      <a id="rules-link" href="rules.html">חוקי המשחק</a>
+      <a id="rules-link" href="rules.html" data-t="nav.rules">חוקי המשחק</a>
       ·
-      <a id="facts-link" href="facts.html" target="_blank" rel="noopener">הפיזיקה, הכימיה והביולוגיה שמאחורי הקלפים</a>
+      <a id="facts-link" href="facts.html" target="_blank" rel="noopener" data-t="nav.factsLong">הפיזיקה, הכימיה והביולוגיה שמאחורי הקלפים</a>
     </p>
-    <p class="note">אפשר גם לקנות את
-      <a id="buy" href="https://www.thegamecrafter.com/games/atoms-and-molecules" target="_blank" rel="noopener">המשחק בגרסה מודפסת</a>.
+    <p class="note"><span data-t="nav.buyLead">אפשר גם לקנות את</span>
+      <a id="buy" href="https://www.thegamecrafter.com/games/atoms-and-molecules" target="_blank" rel="noopener" data-t="nav.buy">המשחק בגרסה מודפסת</a>.
     </p>
   </section>
 
   <section id="view-lobby" class="view hidden">
-    <h2>חדר המתנה</h2>
+    <h2 data-t="lobby.title">חדר המתנה</h2>
 
     <div class="linkbox">
-      <label for="share">הקישור למשחק</label>
+      <label for="share" data-t="lobby.linkLabel">הקישור למשחק</label>
       <div class="row">
         <input id="share" readonly>
-        <button id="copy">העתק</button>
+        <button id="copy" data-t="lobby.copy">העתק</button>
       </div>
-      <p class="note">שלח את הקישור לכל מי שאתה רוצה שישחק.</p>
+      <p class="note" data-t="lobby.share">שלח את הקישור לכל מי שאתה רוצה שישחק.</p>
     </div>
 
-    <h3>שחקנים</h3>
+    <h3 data-t="lobby.players">שחקנים</h3>
     <ol id="roster" class="roster"></ol>
 
     <div id="host-controls" class="hidden">
       <div class="settings">
         <div class="field">
-          <label for="set-atoms">קלפי אטום לכל שחקן</label>
+          <label for="set-atoms" data-t="lobby.atomsPer">קלפי אטום לכל שחקן</label>
           <input id="set-atoms" type="number" min="1" max="24" value="12">
         </div>
         <div class="field">
-          <label for="set-mols">קלפי מולקולה לכל שחקן</label>
+          <label for="set-mols" data-t="lobby.molsPer">קלפי מולקולה לכל שחקן</label>
           <input id="set-mols" type="number" min="1" max="8" value="3">
         </div>
       </div>
-      <button id="start" class="primary">התחל משחק</button>
-      <p class="note">הסדר ברשימה הוא סדר התורות. עם ההתחלה החדר ננעל.</p>
+      <button id="start" class="primary" data-t="lobby.start">התחל משחק</button>
+      <p class="note" data-t="lobby.orderNote">הסדר ברשימה הוא סדר התורות. עם ההתחלה החדר ננעל.</p>
     </div>
 
     <p id="deal-note" class="note"></p>
@@ -78,24 +86,24 @@
     <div class="board">
 
       <aside class="side">
-        <h3>סדר השחקנים</h3>
+        <h3 data-t="game.seatOrder">סדר השחקנים</h3>
         <ol id="players" class="players"></ol>
       </aside>
 
       <div class="main">
         <div id="turn-banner" class="banner"></div>
 
-        <h3>אזור המשחק</h3>
+        <h3 data-t="game.area">אזור המשחק</h3>
         <div id="table" class="table">
           <div id="table-mol" class="slot"></div>
-          <div id="table-units" class="units"></div>
+          <div id="table-units" class="units-grid"></div>
         </div>
 
         <div id="decks" class="decks"></div>
         <div id="actions" class="actions"></div>
         <p id="game-note" class="note"></p>
 
-        <h3>הקלפים שלך</h3>
+        <h3 data-t="game.yourCards">הקלפים שלך</h3>
         <div id="hand-mols" class="hand"></div>
         <div id="hand-atoms" class="hand"></div>
       </div>

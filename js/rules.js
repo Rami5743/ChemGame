@@ -59,18 +59,18 @@ export function buildMoleculeDeck() {
 // What one placement is worth. A fusion card plus regular atoms counts as the
 // single atom whose atomic number is their sum.
 export function unitElement(cards) {
-  if (!cards.length) return { error: 'לא נבחרו קלפים' };
+  if (!cards.length) return { error: 'noCardsChosen' };
   const fusions = cards.filter((c) => c.el === FUSION);
-  if (fusions.length > 1) return { error: 'אפשר להניח רק קלף היתוך אחד בכל יחידה' };
+  if (fusions.length > 1) return { error: 'oneFusionOnly' };
   if (!fusions.length) {
-    if (cards.length > 1) return { error: 'אפשר להניח רק קלף אטום אחד בכל פעם' };
+    if (cards.length > 1) return { error: 'oneAtomOnly' };
     return { el: cards[0].el };
   }
   const rest = cards.filter((c) => c.el !== FUSION);
-  if (!rest.length) return { error: 'קלף היתוך מונח יחד עם קלף אטום אחד לפחות' };
+  if (!rest.length) return { error: 'fusionNeedsAtom' };
   const z = rest.reduce((sum, c) => sum + ELEMENTS[c.el].z, 0);
   const el = Z_TO_ELEMENT[z];
-  if (!el) return { error: `סכום המספרים האטומיים הוא ${z}, ואין במשחק אטום כזה` };
+  if (!el) return { error: 'noSuchSum', z };
   return { el };
 }
 
@@ -141,7 +141,8 @@ const currentPlayer = (s) => s.seats[s.turn];
 const nextTurn = (s) => {
   s.turn = (s.turn + 1) % s.seats.length;
 };
-const fail = (error) => ({ ok: false, error });
+// A refusal is a code, not a sentence: the screen says it in its own language.
+const fail = (error, more) => ({ ok: false, error, ...more });
 
 export function areaFormula(state) {
   return state.area.molecule ? formulaOf(state.area.molecule.mol, state.area.alkaneN) : null;
@@ -163,10 +164,10 @@ function takeCards(hand, ids) {
   const picked = [];
   const seen = new Set();
   for (const id of ids) {
-    if (seen.has(id)) return { error: 'אותו קלף נבחר פעמיים' };
+    if (seen.has(id)) return { error: 'sameCardTwice' };
     seen.add(id);
     const card = hand.find((c) => c.id === id);
-    if (!card) return { error: 'הקלף אינו בידך' };
+    if (!card) return { error: 'cardNotInHand' };
     picked.push(card);
   }
   return { picked };
@@ -215,11 +216,9 @@ function finishTakeback(state) {
 
 function placeUnitInto(state, playerId, cards, formula) {
   const unit = unitElement(cards);
-  if (unit.error) return fail(unit.error);
+  if (unit.error) return fail(unit.error, { z: unit.z });
   const next = composition([...state.area.units, { el: unit.el }]);
-  if (!isPartOf(next, formula)) {
-    return fail(`${ELEMENTS[unit.el].name} אינו משתלב במולקולה שעל השולחן`);
-  }
+  if (!isPartOf(next, formula)) return fail('doesNotFit', { el: unit.el });
   removeCards(state.hands[playerId].atoms, cards);
   state.area.units.push({ by: playerId, el: unit.el, cards });
   return { ok: true };
@@ -228,14 +227,14 @@ function placeUnitInto(state, playerId, cards, formula) {
 /* ---------- moves ---------- */
 
 export function apply(state, playerId, move) {
-  if (state.phase === 'over') return fail('המשחק נגמר');
+  if (state.phase === 'over') return fail('gameOver');
 
   if (state.phase === 'takeback') {
-    if (move.t !== 'takeBack') return fail('ממתינים להחזרת קלפים');
+    if (move.t !== 'takeBack') return fail('waitingTakeback');
     return applyTakeBack(state, playerId, move);
   }
 
-  if (playerId !== currentPlayer(state)) return fail('לא תורך');
+  if (playerId !== currentPlayer(state)) return fail('notYourTurn');
 
   switch (move.t) {
     case 'startMolecule':
@@ -253,19 +252,17 @@ export function apply(state, playerId, move) {
     case 'pass':
       return applyPass(state, playerId);
     default:
-      return fail('מהלך לא מוכר');
+      return fail('unknownMove');
   }
 }
 
 function applyStartMolecule(state, playerId, move) {
-  if (state.phase !== 'opening') return fail('אי אפשר לפתוח מולקולה עכשיו');
+  if (state.phase !== 'opening') return fail('cannotOpenNow');
   const hand = state.hands[playerId];
   const card = hand.molecules.find((c) => c.id === move.molecule);
-  if (!card) return fail('קלף המולקולה אינו בידך');
+  if (!card) return fail('moleculeNotInHand');
   const formula = formulaOf(card.mol, move.alkaneN);
-  if (!formula) {
-    return fail(`צריך להכריז על מספר אטומי פחמן בין ${ALKANE_MIN} ל ${ALKANE_MAX}`);
-  }
+  if (!formula) return fail('declareCarbons');
   const taken = takeCards(hand.atoms, move.cards || []);
   if (taken.error) return fail(taken.error);
 
@@ -281,7 +278,7 @@ function applyStartMolecule(state, playerId, move) {
 }
 
 function applyDrawFive(state, playerId, move) {
-  if (state.phase !== 'opening') return fail('אפשר למשוך חמישה רק בתחילת מולקולה');
+  if (state.phase !== 'opening') return fail('fiveOnlyAtStart');
   const kind = move.kind === 'molecules' ? 'molecules' : 'atoms';
   const drawn = [];
   for (let i = 0; i < 5; i++) {
@@ -289,17 +286,17 @@ function applyDrawFive(state, playerId, move) {
     if (!card) break;
     drawn.push(card);
   }
-  if (!drawn.length) return fail('הקופה והערמה ריקות');
+  if (!drawn.length) return fail('deckEmpty');
   state.pick = { kind, cards: drawn };
   state.phase = 'picking';
   return { ok: true };
 }
 
 function applyPick(state, playerId, move) {
-  if (state.phase !== 'picking') return fail('אין מה לבחור');
+  if (state.phase !== 'picking') return fail('nothingToPick');
   const { kind, cards } = state.pick;
   const card = cards.find((c) => c.id === move.card);
-  if (!card) return fail('הקלף אינו בין החמישה');
+  if (!card) return fail('notAmongFive');
   const hand = state.hands[playerId];
   (kind === 'atoms' ? hand.atoms : hand.molecules).push(card);
   const rest = cards.filter((c) => c !== card);
@@ -311,7 +308,7 @@ function applyPick(state, playerId, move) {
 }
 
 function applyPlaceUnit(state, playerId, move) {
-  if (state.phase !== 'building') return fail('אין מולקולה על השולחן');
+  if (state.phase !== 'building') return fail('noMoleculeOnTable');
   const taken = takeCards(state.hands[playerId].atoms, move.cards || []);
   if (taken.error) return fail(taken.error);
   const placed = placeUnitInto(state, playerId, taken.picked, areaFormula(state));
@@ -320,22 +317,20 @@ function applyPlaceUnit(state, playerId, move) {
 }
 
 function applySwapMolecule(state, playerId, move) {
-  if (state.phase !== 'building') return fail('אין מולקולה להחליף');
+  if (state.phase !== 'building') return fail('noMoleculeToSwap');
   const hand = state.hands[playerId];
   const card = hand.molecules.find((c) => c.id === move.molecule);
-  if (!card) return fail('קלף המולקולה אינו בידך');
+  if (!card) return fail('moleculeNotInHand');
   const formula = formulaOf(card.mol, move.alkaneN);
-  if (!formula) {
-    return fail(`צריך להכריז על מספר אטומי פחמן בין ${ALKANE_MIN} ל ${ALKANE_MAX}`);
-  }
+  if (!formula) return fail('declareCarbons');
   const taken = takeCards(hand.atoms, move.cards || []);
   if (taken.error) return fail(taken.error);
 
   const unit = unitElement(taken.picked);
-  if (unit.error) return fail(unit.error);
+  if (unit.error) return fail(unit.error, { z: unit.z });
   const next = composition([...state.area.units, { el: unit.el }]);
   if (!isPartOf(next, formula)) {
-    return fail('האטומים שכבר על השולחן אינם משתלבים במולקולה החדשה');
+    return fail('tableDoesNotFitNew');
   }
 
   state.molDiscard.push(state.area.molecule);
@@ -348,18 +343,18 @@ function applySwapMolecule(state, playerId, move) {
 }
 
 function applyDrawAtom(state, playerId) {
-  if (state.phase !== 'building') return fail('אי אפשר למשוך עכשיו');
+  if (state.phase !== 'building') return fail('cannotDrawNow');
   const card = takeFromDeck(state, 'atoms');
-  if (!card) return fail('קופת האטומים והערמה ריקות');
+  if (!card) return fail('atomDeckEmpty');
   state.hands[playerId].atoms.push(card);
   nextTurn(state);
   return { ok: true };
 }
 
 function applyPass(state, playerId) {
-  if (state.phase !== 'building') return fail('אי אפשר לוותר על התור עכשיו');
+  if (state.phase !== 'building') return fail('cannotPassNow');
   if (state.atomDeck.length || state.atomDiscard.length) {
-    return fail('יש עדיין קלפי אטום, אפשר למשוך');
+    return fail('atomsStillAvailable');
   }
   state.passes += 1;
   if (state.passes >= state.seats.length) {
@@ -378,14 +373,14 @@ function applyPass(state, playerId) {
 
 function applyTakeBack(state, playerId, move) {
   const pending = state.takeback.pending;
-  if (!pending.includes(playerId)) return fail('אינך בין מי שהניחו קלפים');
+  if (!pending.includes(playerId)) return fail('notAContributor');
   if (move.card) {
     const unit = state.area.units.find(
       (u) => u.by === playerId && u.cards.some((c) => c.id === move.card)
     );
-    if (!unit) return fail('הקלף אינו מהקלפים שהנחת');
+    if (!unit) return fail('notYourPlacedCard');
     const card = unit.cards.find((c) => c.id === move.card);
-    if (card.el === FUSION) return fail('אי אפשר לקחת בחזרה קלף היתוך גרעיני');
+    if (card.el === FUSION) return fail('cannotTakeBackFusion');
     unit.cards.splice(unit.cards.indexOf(card), 1);
     state.hands[playerId].atoms.push(card);
   }
