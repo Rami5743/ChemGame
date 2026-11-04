@@ -17,9 +17,9 @@
 
   <section id="view-name" class="view">
     <h2 id="name-title">משחק חדש</h2>
-    <label for="name-input">השם שלך</label>
+    <label for="name-input">השם שלך, אם בא לך</label>
     <div class="row">
-      <input id="name-input" maxlength="16" autocomplete="off" placeholder="איך לקרוא לך">
+      <input id="name-input" maxlength="16" autocomplete="off" placeholder="אפשר להשאיר ריק">
       <button id="name-go" class="primary">צור משחק</button>
     </div>
     <p id="name-note" class="note"></p>
@@ -41,10 +41,21 @@
     <ol id="roster" class="roster"></ol>
 
     <div id="host-controls" class="hidden">
+      <div class="settings">
+        <div class="field">
+          <label for="set-atoms">קלפי אטום לכל שחקן</label>
+          <input id="set-atoms" type="number" min="1" max="24" value="12">
+        </div>
+        <div class="field">
+          <label for="set-mols">קלפי מולקולה לכל שחקן</label>
+          <input id="set-mols" type="number" min="1" max="8" value="3">
+        </div>
+      </div>
       <button id="start" class="primary">התחל משחק</button>
       <p class="note">הסדר ברשימה הוא סדר התורות. עם ההתחלה החדר ננעל.</p>
     </div>
 
+    <p id="deal-note" class="note"></p>
     <p id="lobby-note" class="note"></p>
   </section>
 

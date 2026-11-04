@@ -1,0 +1,17 @@
+{
+  "name": "chemgame",
+  "private": true,
+  "type": "module",
+  "description": "Online version of the Atoms & Molecules card game. The site itself has no dependencies; these are for the test run only.",
+  "scripts": {
+    "test": "node test/run.mjs",
+    "test:unit": "node test/run.mjs --unit",
+    "test:e2e": "node test/run.mjs --e2e"
+  },
+  "devDependencies": {
+    "aedes": "^1.2.0",
+    "aedes-server-factory": "^0.2.1",
+    "playwright": "^1.49.1",
+    "ws": "^8.18.0"
+  }
+}

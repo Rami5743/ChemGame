@@ -2,6 +2,9 @@ import { createBus } from './net.js';
 
 const $ = (id) => document.getElementById(id);
 
+const DEFAULT_DEAL = { atoms: 12, molecules: 3 };
+const DECK_SIZE = { atoms: 72, molecules: 36 };
+
 const HEARTBEAT_MS = 4000;
 const OFFLINE_MS = 12000;
 const NO_HOST_MS = 9000;
@@ -13,6 +16,8 @@ let bus = null;
 let snapshot = null; // last public state published by the host
 let host = null; // host-only bookkeeping
 let noHostTimer = null;
+
+const seatName = (n) => `שחקן ${n}`;
 
 function clientId() {
   let v = sessionStorage.getItem('cg_id');
@@ -66,13 +71,8 @@ function initEntry() {
 }
 
 function enter() {
-  const name = $('name-input').value.trim();
-  if (!name) {
-    $('name-note').textContent = 'צריך להקליד שם.';
-    $('name-note').classList.add('error');
-    return;
-  }
-  me.name = name.slice(0, 16);
+  // No name is a fine answer: the host hands out one by join order.
+  me.name = $('name-input').value.trim().slice(0, 16);
   localStorage.setItem('cg_name', me.name);
 
   if (!room) {
@@ -97,10 +97,11 @@ function connect() {
 
   if (isHost) {
     host = {
-      players: new Map([[me.id, { id: me.id, name: me.name, last: Date.now() }]]),
+      players: new Map([[me.id, { id: me.id, name: me.name || seatName(1), last: Date.now() }]]),
       order: [me.id],
       locked: false,
       turn: 0,
+      deal: { ...DEFAULT_DEAL },
       lastSig: '',
     };
     setInterval(() => {
@@ -132,6 +133,16 @@ function connect() {
   $('share').value = shareLink();
   $('copy').addEventListener('click', copyLink);
   $('start').addEventListener('click', startGame);
+  for (const id of ['set-atoms', 'set-mols']) {
+    $(id).addEventListener('input', () => {
+      if (!host || host.locked) return;
+      const { deal } = readDeal(host.order.length);
+      if (deal) {
+        host.deal = deal;
+        publishState();
+      }
+    });
+  }
   $('host-controls').classList.toggle('hidden', !isHost);
 
   show('lobby');
@@ -173,13 +184,14 @@ function buildState() {
     return { id, name: p.name, online: now - p.last < OFFLINE_MS };
   };
   if (!host.locked) {
-    return { phase: 'lobby', host: me.id, order: host.order.map(row) };
+    return { phase: 'lobby', host: me.id, order: host.order.map(row), deal: host.deal };
   }
   return {
     phase: 'game',
     host: me.id,
     order: host.order.map(row),
     turn: host.order[host.turn],
+    deal: host.deal,
   };
 }
 
@@ -199,11 +211,13 @@ function onAct(msg) {
     const p = host.players.get(msg.id);
     if (p) {
       p.last = Date.now();
-      if (!host.locked && msg.name) p.name = String(msg.name).slice(0, 16);
+      // An empty name must not wipe the one the host handed out.
+      const sent = String(msg.name || '').slice(0, 16);
+      if (!host.locked && sent) p.name = sent;
     } else if (!host.locked) {
       host.players.set(msg.id, {
         id: msg.id,
-        name: String(msg.name || 'שחקן').slice(0, 16),
+        name: String(msg.name || '').slice(0, 16) || seatName(host.order.length + 1),
         last: Date.now(),
       });
       host.order.push(msg.id);
@@ -233,13 +247,46 @@ function moveSeat(id, delta) {
   publishState();
 }
 
+// Reads the two inputs, or explains what is wrong with them.
+function readDeal(seats) {
+  const whole = (el, fallback) => {
+    const n = Number(el.value);
+    return Number.isInteger(n) && n > 0 ? n : fallback;
+  };
+  const deal = {
+    atoms: whole($('set-atoms'), DEFAULT_DEAL.atoms),
+    molecules: whole($('set-mols'), DEFAULT_DEAL.molecules),
+  };
+  for (const kind of ['atoms', 'molecules']) {
+    if (deal[kind] * seats > DECK_SIZE[kind]) {
+      return {
+        error:
+          kind === 'atoms'
+            ? `אין מספיק קלפי אטום בחפיסה. יש ${DECK_SIZE.atoms}, ולכן לכל היותר ${Math.floor(DECK_SIZE.atoms / seats)} לכל שחקן.`
+            : `אין מספיק קלפי מולקולה בחפיסה. יש ${DECK_SIZE.molecules}, ולכן לכל היותר ${Math.floor(DECK_SIZE.molecules / seats)} לכל שחקן.`,
+      };
+    }
+  }
+  return { deal };
+}
+
+function lobbyError(text) {
+  $('lobby-note').textContent = text;
+  $('lobby-note').classList.add('error');
+}
+
 function startGame() {
   if (!host || host.locked) return;
   if (host.order.length < 2) {
-    $('lobby-note').textContent = 'צריך לפחות שני שחקנים כדי להתחיל.';
-    $('lobby-note').classList.add('error');
+    lobbyError('צריך לפחות שני שחקנים כדי להתחיל.');
     return;
   }
+  const { deal, error } = readDeal(host.order.length);
+  if (error) {
+    lobbyError(error);
+    return;
+  }
+  host.deal = deal;
   host.locked = true;
   host.turn = 0;
   publishState(true);
@@ -313,6 +360,8 @@ function renderLobby() {
   });
 
   $('start').disabled = snapshot.order.length < 2;
+  const d = snapshot.deal || DEFAULT_DEAL;
+  $('deal-note').textContent = `לכל שחקן יחולקו: ${d.atoms} קלפי אטום, ${d.molecules} קלפי מולקולה.`;
   if (!$('lobby-note').classList.contains('error')) {
     $('lobby-note').textContent = isHost
       ? 'ממתין לשחקנים. אתה המארח.'

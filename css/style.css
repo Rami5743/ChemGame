@@ -81,6 +81,10 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .status[data-state="wait"] { color: var(--warn); border-color: #5c4a22; }
 .status[data-state="err"] { color: var(--bad); border-color: #5e2f2c; }
 
+.settings { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.settings .field { flex: 1 1 180px; }
+.settings input { width: 100%; }
+
 .linkbox {
   background: var(--panel);
   border: 1px solid var(--line);
