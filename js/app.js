@@ -181,6 +181,7 @@ function playerRelay(urls) {
     }
     const url = urls[i++];
     let settled = false;
+    let dropped = false;
     let timer = null;
     const b = createBus({
       url,
@@ -189,6 +190,7 @@ function playerRelay(urls) {
       isHost: false,
       onMessage,
       onStatus: (state) => {
+        if (dropped) return; // it was given up on; its later noise is not news
         noteLink(url, state);
         if (state === 'on' && !settled) {
           settled = true;
@@ -204,6 +206,7 @@ function playerRelay(urls) {
     });
     timer = setTimeout(() => {
       if (!settled) {
+        dropped = true;
         noteLink(url, 'dead');
         b.stop();
         tryNext();
@@ -1200,6 +1203,7 @@ window.chemgame = {
   move: sendMove,
   state: () => snapshot,
   cards: () => myCards,
+  links: () => Object.fromEntries(links),
   me: () => ({ ...me }),
 };
 

@@ -10,8 +10,16 @@ export async function startBroker(port) {
   return {
     url: `ws://127.0.0.1:${port}/mqtt`,
     async close() {
-      await new Promise((res) => server.close(res));
-      await new Promise((res) => broker.close(res));
+      // A websocket that is still up would hold server.close() open for ever.
+      server.closeAllConnections?.();
+      await Promise.race([
+        new Promise((res) => server.close(res)),
+        new Promise((res) => setTimeout(res, 3000)),
+      ]);
+      await Promise.race([
+        new Promise((res) => broker.close(res)),
+        new Promise((res) => setTimeout(res, 3000)),
+      ]);
     },
   };
 }
