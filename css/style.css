@@ -87,6 +87,10 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .note { color: var(--dim); font-size: 13px; margin: 10px 0 0; }
 .note.error { color: var(--bad); }
 
+.head-end { display: flex; align-items: center; gap: 12px; }
+.rules { color: var(--dim); font-size: 13px; text-decoration: none; border-bottom: 1px dotted var(--line); }
+.rules:hover { color: var(--accent); }
+
 .status { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
 .status[data-state="on"] { color: var(--good); border-color: #2a5c40; }
 .status[data-state="wait"] { color: var(--warn); border-color: #5c4a22; }
@@ -257,4 +261,8 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 @media (max-width: 640px) {
   .board { flex-direction: column; }
   .side { flex: 1 1 auto; width: 100%; position: static; }
+  .cardbtn { --w: 72px; }
+  .unit .cardbtn { --w: 54px; }
+  .table { gap: 10px; }
+  main { padding: 12px; }
 }

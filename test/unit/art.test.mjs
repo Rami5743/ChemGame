@@ -38,6 +38,10 @@ export default async function run({ check }) {
   check('no single card is heavier than 60 KiB', biggest < 60 * 1024, biggest);
   check('the whole deck is under half a megabyte', total < 512 * 1024, total);
 
+  let rules = -1;
+  try { rules = await sizeOf('materials/inst/Hebrew-instructions.pdf'); } catch {}
+  check('the rules the page links to are there', rules > 0);
+
   const files = await readdir(join(root, 'assets/cards/he'));
   check('the folder holds exactly the cards of the catalogue',
     files.length === Object.keys(MOLECULES).length + Object.keys(ELEMENTS).length + 3, files.length);
