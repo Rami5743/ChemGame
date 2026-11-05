@@ -15,12 +15,23 @@ the booklet, the boxes and the fact sheets. The card images are built from it,
 `rules.html` and `rules.en.html` are the booklet set as one continuous page.
 The sheet about the cards — the physics, chemistry and biology behind them — is
 what `facts.pdf` and `facts.en.pdf` hold, and that is what the game links to.
-In Hebrew it is the supplied file itself: `tools/link-facts-pdf.py` lays a link
-annotation over each term and changes nothing else, so the page is the printed
-page to the pixel. In English there is no such file, so `facts.en.html` sets the
-same text in the same colours and `tools/build-facts-pdf.mjs` prints it. The
-terms link out: the Hebrew to Wikipedia, the English to Grokipedia. The entry
-screen also links to the printed game at The Game Crafter.
+In Hebrew it is the supplied file itself. `tools/sheet.py` opens that file far
+enough to reach the text inside it: Word wrote every run of text as its own
+block with an absolute position, so a run can be recoloured, split or rewritten
+and nothing else on the page moves, and a line that grew or shrank is justified
+again by taking the difference out of the gaps between its words. On that,
+`tools/link-facts-pdf.py` makes 49 corrections of spelling, lays a link over
+every term and sets those terms in the blue the game uses for a link. Rewriting
+every run without changing one of them gives the page back pixel for pixel,
+which is what says the machinery is honest.
+
+In English there is no such file, so `facts.en.html` sets the same text in the
+same colours and `tools/build-facts-pdf.mjs` prints it — on paper in the
+setting of the printed sheet: one justified column with the photographs in the
+margins, the colours running to the edge of the paper, the atoms filling the
+first page and the molecules opening the next. The terms link out: the Hebrew
+to Wikipedia, the English to Grokipedia, about seventy subjects either way. The
+entry screen also links to the printed game at The Game Crafter.
 
 ## Playing
 

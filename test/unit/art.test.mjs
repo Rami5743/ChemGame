@@ -130,9 +130,16 @@ export default async function run({ check }) {
   check('the rules page leads to the game and to the sheet',
     text.includes('./?lang=he') && text.includes('facts.pdf'));
   check('the English sheet links out to Grokipedia',
-    (factsText.match(/grokipedia\.com/g) || []).length > 30);
-  check('on paper the English sheet is set in two columns, like the printed one',
-    (await readFile(join(root, 'css/facts.css'), 'utf8')).includes('column-count: 2'));
+    (factsText.match(/grokipedia\.com/g) || []).length > 60);
+  check('both sheets point at about the same number of subjects',
+    Math.abs(new Set(factsText.match(/grokipedia\.com\/page\/[^"]+/g)).size -
+      new Set(terms.match(/,\s*'[^']+'\)/g)).size) < 8);
+  const sheetCss = await readFile(join(root, 'css/facts.css'), 'utf8');
+  check('on paper the English sheet is set as the printed one is: one column',
+    sheetCss.includes('@page { size: letter; margin: 0; }') &&
+    !sheetCss.includes('column-count'));
+  check('and its colours run to the edge of the paper',
+    /section\.atoms \{[^}]*min-height: \d+vh/.test(sheetCss));
 
   // --- the same in English ------------------------------------------------
   const inEnglish = {
