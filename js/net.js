@@ -14,8 +14,13 @@
 // common with the host. The first in the list listens on 443, which is the
 // port a restrictive network is least likely to close.
 
+// The two at the head listen on 443, the port a network that closes
+// everything else still leaves open; the rest listen on ports of their own,
+// which a strict network is likely to shut. A name and a word may be written
+// into the address, as the one at shiftr.io asks for.
 export const BROKERS = [
   'wss://mqtt.eclipseprojects.io/mqtt',
+  'wss://public:public@public.cloud.shiftr.io',
   'wss://broker.emqx.io:8084/mqtt',
   'wss://broker.hivemq.com:8884/mqtt',
   'wss://test.mosquitto.org:8081/mqtt',
@@ -28,17 +33,43 @@ export function brokerList() {
   return chosen.split(',').map((u) => u.trim()).filter(Boolean);
 }
 
+// A broker that wants a name and a word takes them from the address itself,
+// the way a browser does: wss://name:word@host/path. They are taken out of
+// the address and handed over on their own, since not every client library
+// reads them from there.
+export function credentials(url) {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) return { url };
+    const username = decodeURIComponent(parsed.username);
+    const password = decodeURIComponent(parsed.password);
+    parsed.username = '';
+    parsed.password = '';
+    return { url: parsed.toString(), username, password };
+  } catch {
+    return { url };
+  }
+}
+
+// What the diagnostic shows for a broker: the address without the word.
+export function shownAs(url) {
+  const { url: bare, username } = credentials(url);
+  return username ? `${username}@${bare.replace(/^wss?:\/\//, '')}` : bare;
+}
+
 export function createBus({ url, room, clientId, isHost, onMessage, onStatus }) {
   const base = `chemgame/1/${room}`;
   const topics = [`${base}/state`, `${base}/p/${clientId}`];
   if (isHost) topics.push(`${base}/act`);
 
-  const client = mqtt.connect(url, {
+  const who = credentials(url);
+  const client = mqtt.connect(who.url, {
     clientId: `cg_${clientId}_${Math.random().toString(36).slice(2, 8)}`,
     clean: true,
     keepalive: 30,
     reconnectPeriod: 4000,
     connectTimeout: 8000,
+    ...(who.username ? { username: who.username, password: who.password } : {}),
   });
 
   client.on('connect', () => {

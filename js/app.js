@@ -1,4 +1,4 @@
-import { createBus, brokerList } from './net.js';
+import { createBus, brokerList, shownAs } from './net.js';
 import { t, lang, setLang, onLang, applyStaticWords } from './i18n.js';
 import { newGame, apply, publicView, privateView, formulaOf } from './rules.js';
 import { layoutFor } from './layouts.js';
@@ -170,7 +170,7 @@ function hostFanout(urls) {
           up.delete(url);
         }
         setStatus(up.size ? 'on' : 'wait');
-        $('status').title = up.size ? [...up].join('\n') : t('links.none');
+        $('status').title = up.size ? [...up].map(shownAs).join('\n') : t('links.none');
       },
     }));
   }
@@ -221,7 +221,7 @@ function playerRelay(urls) {
         else live.delete(b);
         setStatus(live.size ? 'on' : state === 'err' ? 'err' : 'wait');
         $('status').title = live.size
-          ? [...live].map((x) => x.url).join('\n')
+          ? [...live].map((x) => shownAs(x.url)).join('\n')
           : t('links.none');
         if (state === 'on') {
           b.act({ t: 'hello', id: me.id, name: me.name });
@@ -275,7 +275,7 @@ function showLinks() {
     const where = document.createElement('span');
     where.dir = 'ltr';
     where.className = 'link-url';
-    where.textContent = url.replace(/^wss?:\/\//, '');
+    where.textContent = shownAs(url).replace(/^wss?:\/\//, '');
     row.append(word, where);
     box.append(row);
   }

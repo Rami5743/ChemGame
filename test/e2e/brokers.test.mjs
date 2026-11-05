@@ -80,6 +80,21 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     const seats = await slow.$$eval('#players li', (n) => n.length);
     check('all four are seated', seats === 4, String(seats));
 
+    // A broker that wants a name and a word takes them from the address.
+    {
+      const withName = second.url.replace('ws://', 'ws://aviv:sod@');
+      const named = await open(`${site}?broker=${withName}#${room}`, 'מוזמן', 'named');
+      pages.push(named);
+      await connected(named);
+      check('a player whose address carries a name and a word gets through', true);
+      await named.click('#status');
+      await named.waitForSelector('#alert:not(.hidden)', { timeout: 5000 });
+      const shown = await named.textContent('#alert');
+      check('and the word itself is never put on the screen',
+        !shown.includes('sod') && shown.includes('aviv@'), shown);
+      await named.click('#status');
+    }
+
     const before = await host.evaluate(() => window.chemgame.state().game.molDeck);
     const said = await twice.evaluate(() =>
       window.chemgame.move({ t: 'drawFive', kind: 'molecules' }));

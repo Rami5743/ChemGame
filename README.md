@@ -172,9 +172,21 @@ node tools/build-facts-pdf.mjs     # facts.en.pdf, printed from facts.en.html
 ## Configuration
 
 `?broker=wss://host:port/path` points the page at a different broker, including
-a self-hosted one. `?seed=<n>` fixes the shuffle, which makes a game
-reproducible. Without them the page uses the public broker named in `js/net.js`
-and a shuffle of its own.
+a self-hosted one; several, separated by commas, are all held at once. A broker
+that wants a name and a word takes them from the address itself,
+`wss://name:word@host/path` — they are taken out before the address is used and
+never appear on the screen. `?seed=<n>` fixes the shuffle, which makes a game
+reproducible. Without them the page uses the brokers named in `js/net.js` and a
+shuffle of its own.
+
+**A network that blocks the game.** The network of an institution or a
+workplace commonly closes every outbound port but 443, the one ordinary
+browsing uses. Two of the brokers in the list listen on 443 for that reason;
+the rest listen on 8084, 8884 and 8081, which such a network shuts. Tapping the
+chip at the top of the page lists every broker and whether it answered, which
+says at once whether this is what happened. The way out is `?broker=` with a
+broker of one's own on 443 — the link carries it to the other players, since
+the share link keeps the whole query string.
 
 ## Limitations
 

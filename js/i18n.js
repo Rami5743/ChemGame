@@ -135,8 +135,10 @@ const WORDS = {
 
     'alert.hostGone': 'המארח אינו מחובר. המשחק ממתין לו, או שאפשר לפתוח משחק חדש.',
     'alert.noBroker':
-      'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת. יש רשתות שחוסמות את החיבור. ' +
-      'נסה רשת אחרת, למשל לעבור מרשת סלולרית לרשת אלחוטית או להפך.',
+      'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת. רשת של מוסד או של מקום עבודה ' +
+      'חוסמת לרוב את כל היציאה חוץ מגלישה רגילה. לחיצה על הכיתוב "מנותק" ' +
+      'שלמעלה מראה מה ענה ומה לא. אפשר גם לנסות רשת אחרת, למשל לעבור מרשת ' +
+      'סלולרית לרשת אלחוטית או להפך, או לצרף לכתובת ?broker= עם שרת משלך.',
     'links.title': 'החיבור לשרתי ההודעות:',
     'links.on': 'מחובר',
     'links.wait': 'מנסה',
@@ -277,8 +279,12 @@ const WORDS = {
 
     'alert.hostGone': 'The host is not connected. The game is waiting, or you can start a new one.',
     'alert.noBroker':
-      'No message server could be reached from this network. Some networks block the connection. ' +
-      'Try another network, a mobile one instead of wireless or the other way round.',
+      'No message server could be reached from this network. The network of an ' +
+      'institution or a workplace usually closes everything but ordinary ' +
+      'browsing. Tapping "disconnected" above shows what answered and what did ' +
+      'not. You can also try another network, a mobile one instead of wireless ' +
+      'or the other way round, or add ?broker= to the address with a server of ' +
+      'your own.',
     'links.title': 'The message servers:',
     'links.on': 'connected',
     'links.wait': 'trying',
