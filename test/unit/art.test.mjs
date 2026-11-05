@@ -88,7 +88,7 @@ export default async function run({ check }) {
   check('the Hebrew sheet is the file that came with the game, not a reprint',
     sheet.includes('Microsoft') && !sheet.includes('Skia/PDF'));
   check('the Hebrew sheet carries a link on every term',
-    (sheet.match(/\/Link/g) || []).length >= 40, (sheet.match(/\/Link/g) || []).length);
+    (sheet.match(/\/Link/g) || []).length >= 80, (sheet.match(/\/Link/g) || []).length);
   check('one set of links per page of the sheet',
     (sheet.match(/\/Annots/g) || []).length === 3);
   // A link whose address holds Hebrew letters is written as a wide string,
@@ -96,11 +96,16 @@ export default async function run({ check }) {
   check('every address on the sheet is plain ascii',
     !sheet.includes('/URI (\\376\\377'));
   const linker = await readFile(join(root, 'tools/link-facts-pdf.py'), 'utf8');
+  const terms = linker.slice(linker.indexOf('TERMS = ['));
   check('the links of the Hebrew sheet go to Wikipedia',
-    linker.includes('he.wikipedia.org') &&
-    (linker.match(/\("/g) || []).length > 30);
+    linker.includes('he.wikipedia.org') && (terms.match(/\n    \('/g) || []).length > 60);
   check('and they are laid over the supplied file',
     linker.includes('materials/facts/facts2_1.pdf'));
+  const fixes = linker.slice(linker.indexOf('FIXES = ['), linker.indexOf('TERMS = ['));
+  check('the spelling of the sheet is corrected where it was wrong',
+    (fixes.match(/\n    \('/g) || []).length > 40);
+  check('the corrections are made in the file itself',
+    (await readFile(join(root, 'tools/sheet.py'), 'utf8')).includes('def replace('));
 
   // In English there is no such file, so the sheet is a page of our own, set
   // in the same colours and printed from there.
