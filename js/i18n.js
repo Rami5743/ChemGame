@@ -46,6 +46,7 @@ const WORDS = {
     'nav.factsLong': 'הפיזיקה, הכימיה והביולוגיה שמאחורי הקלפים',
     'nav.buyLead': 'אפשר גם לקנות את',
     'nav.buy': 'המשחק בגרסה מודפסת',
+    'nav.buyShort': 'הגרסה המודפסת',
     'nav.he': 'עברית',
     'nav.en': 'אנגלית',
 
@@ -187,6 +188,7 @@ const WORDS = {
     'nav.factsLong': 'The physics, chemistry and biology behind the cards',
     'nav.buyLead': 'You can also buy',
     'nav.buy': 'the printed game',
+    'nav.buyShort': 'The printed game',
     'nav.he': 'Hebrew',
     'nav.en': 'English',
 

@@ -2,10 +2,12 @@
 
 An online version of the Atoms & Molecules card game: a static page with no
 server code of its own. Open it, start a game, send the link to the people you
-want to play with. It is played in Hebrew or in English — the two flags in the
-header switch between them at any moment, in the middle of a game as well,
-without reloading anything, and each player keeps his own choice, so the link
-carries no language.
+want to play with. It is played in Hebrew or in American English — the two
+flags in the header switch between them at any moment, in the middle of a game
+as well, without reloading anything, and each player keeps his own choice, so
+the link carries no language. The same bar sits across the top of every page,
+styled in `css/head.css` alone: the title, the two flags, the way to the
+rules, to the sheet about the cards and to the printed game.
 
 Live at https://rami5743.github.io/ChemGame/
 

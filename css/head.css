@@ -1,0 +1,65 @@
+/* The bar across the top of every page of the game. It is kept here, and not
+   in the stylesheet of each page, so that the game and the rules cannot drift
+   apart: one bar, one set of colours, one place to change them. */
+
+:root {
+  --head-bg: #1a202b;
+  --head-line: #2b3444;
+  --head-ink: #e8edf5;
+  --head-dim: #94a1b5;
+  --head-accent: #4da3ff;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--head-line);
+  background: var(--head-bg);
+  color: var(--head-ink);
+  font-family: "Segoe UI", "Noto Sans Hebrew", system-ui, Arial, sans-serif;
+}
+header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--head-ink);
+}
+
+.head-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.langs { display: flex; gap: 6px; }
+
+.flag {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 5px;
+  line-height: 0;
+  background: #222a36;
+  border: 1px solid var(--head-line);
+  opacity: 0.5;
+  cursor: pointer;
+}
+.flag svg { width: 25px; height: 17px; display: block; border-radius: 2px; }
+.flag:hover { opacity: 0.85; }
+.flag.active { opacity: 1; border-color: var(--head-accent); }
+
+/* Every word in the bar that leads somewhere looks the same. */
+header a {
+  color: var(--head-dim);
+  font-size: 13px;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--head-line);
+}
+header a:hover { color: var(--head-accent); }
+header a.flag { border-bottom: 1px solid var(--head-line); }
+header a.flag:hover { border-bottom-color: var(--head-line); }
+
+@media (max-width: 640px) {
+  header { padding: 10px 12px; }
+  header h1 { font-size: 17px; }
+  .head-end { gap: 8px; }
+  header a { font-size: 12px; }
+}

@@ -31,38 +31,8 @@ body {
   min-height: 100vh;
 }
 
-header .bar {
-  background: var(--yellow);
-  border-bottom: 3px solid var(--rule);
-  padding: 18px 20px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-h1 {
-  margin: 0;
-  font-size: 32px;
-  letter-spacing: -0.5px;
-}
-
-nav { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-
-.flag { display: inline-flex; padding: 2px; border-radius: 5px; line-height: 0;
-  background: rgba(255, 255, 255, 0.5); border: 1px solid var(--rule); opacity: 0.55; }
-.flag svg { width: 25px; height: 17px; display: block; border-radius: 2px; }
-.flag:hover { opacity: 0.9; }
-.flag.active { opacity: 1; border-color: #111; }
-
-.back {
-  color: #4a3d00;
-  font-size: 15px;
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule);
-}
-.back:hover { color: #000; }
+/* The bar across the top is the same on every page of the game, and lives in
+   css/head.css. What is left here is the booklet itself. */
 
 main {
   max-width: 740px;
@@ -197,7 +167,6 @@ th, td {
 @media (max-width: 640px) {
   body { font-size: 16px; }
   main { padding: 8px 14px 48px; }
-  h1 { font-size: 26px; }
   .row img { width: 84px; }
   .withcard { flex-direction: column; }
   .fact { gap: 10px; }

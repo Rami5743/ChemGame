@@ -24,17 +24,7 @@ body {
   line-height: 1.5;
 }
 
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-}
-
-h1 { font-size: 20px; margin: 0; letter-spacing: 0.5px; }
+/* The bar across the top is in css/head.css, which every page shares. */
 h2 { font-size: 19px; margin: 0 0 14px; }
 h3 { font-size: 15px; margin: 22px 0 8px; color: var(--dim); font-weight: 600; }
 
@@ -99,23 +89,6 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .note { color: var(--dim); font-size: 13px; margin: 10px 0 0; }
 .note.error { color: var(--bad); }
 .note a { color: var(--accent); }
-
-.head-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
-.langs { display: flex; gap: 6px; }
-.flag {
-  padding: 2px;
-  border-radius: 5px;
-  line-height: 0;
-  background: #222a36;
-  border: 1px solid var(--line);
-  opacity: 0.5;
-}
-.flag svg { width: 25px; height: 17px; display: block; border-radius: 2px; }
-.flag:hover { opacity: 0.85; }
-.flag.active { opacity: 1; border-color: var(--accent); }
-.rules { color: var(--dim); font-size: 13px; text-decoration: none; border-bottom: 1px dotted var(--line); }
-.rules:hover { color: var(--accent); }
 
 .status { cursor: pointer; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
 .status[data-state="on"] { color: var(--good); border-color: #2a5c40; }

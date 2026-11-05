@@ -167,6 +167,18 @@ export default async function run({ check }) {
     entry.includes('rules.html') && entry.includes('facts.pdf'));
   check('the entry screen offers the printed game',
     entry.includes('thegamecrafter.com/games/atoms-and-molecules'));
+  // One bar across the top of every page: the same file, the same links.
+  const bar = (what) => what.slice(what.indexOf('<header'), what.indexOf('</header>'));
+  for (const [name, page] of [['the game', entry], ['the rules', text],
+                              ['the English rules', await readFile(join(root, 'rules.en.html'), 'utf8')]]) {
+    check(`${name} wears the shared top bar`, page.includes('css/head.css'));
+    check(`${name} offers the printed game up there`,
+      bar(page).includes('thegamecrafter.com/games/atoms-and-molecules'));
+    check(`${name} has both flags up there`,
+      (bar(page).match(/class="flag/g) || []).length === 2);
+  }
+  check('and the bar is styled in one place only',
+    !(await readFile(join(root, 'css/rules.css'), 'utf8')).includes('header .bar'));
   check('the header carries a flag for each language',
     (entry.match(/data-lang="(he|en)"/g) || []).length === 2);
 }
