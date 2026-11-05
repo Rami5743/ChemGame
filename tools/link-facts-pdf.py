@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from urllib.parse import quote
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import Link
@@ -134,9 +135,12 @@ def main():
         x1 = max(b[2] for b in boxes) + 1
         y0 = min(b[1] for b in boxes) - 1
         y1 = max(b[3] for b in boxes) + 1
+        # The address is escaped to plain ASCII. A PDF link whose address
+        # holds Hebrew letters is written as a wide string, and a reader is
+        # entitled to make nothing of that, which is what readers do.
         link = Link(
             rect=(x0, height - y1, x1, height - y0),
-            url=WIKI + article.replace(" ", "_"),
+            url=WIKI + quote(article.replace(" ", "_")),
         )
         # No border, so the page looks exactly as it was printed.
         link[NameObject("/Border")] = ArrayObject(

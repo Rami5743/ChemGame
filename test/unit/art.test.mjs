@@ -91,6 +91,10 @@ export default async function run({ check }) {
     (sheet.match(/\/Link/g) || []).length >= 40, (sheet.match(/\/Link/g) || []).length);
   check('one set of links per page of the sheet',
     (sheet.match(/\/Annots/g) || []).length === 3);
+  // A link whose address holds Hebrew letters is written as a wide string,
+  // which a reader is free to ignore — and does. The address is escaped.
+  check('every address on the sheet is plain ascii',
+    !sheet.includes('/URI (\\376\\377'));
   const linker = await readFile(join(root, 'tools/link-facts-pdf.py'), 'utf8');
   check('the links of the Hebrew sheet go to Wikipedia',
     linker.includes('he.wikipedia.org') &&
