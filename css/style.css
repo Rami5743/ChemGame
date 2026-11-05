@@ -292,8 +292,17 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .el-pile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .el-head { font-weight: 700; font-size: 15px; color: var(--muted); }
 .el-pile.full .el-head { color: var(--accent); }
-.el-stack { display: flex; flex-direction: column; align-items: center; }
-.el-stack > * + * { margin-top: -90px; }
+/* A pile is a pile: each card lies all but on top of the one under it, a few
+   pixels showing. The step is taken off the card's own height, which is its
+   width by the shape of a card, plus the padding around it. */
+.el-stack {
+  --w: 86px;
+  --step: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.el-stack > * + * { margin-top: calc(var(--step) - var(--w) * 600 / 440 - 8px); }
 .el-stack.open > * + * { margin-top: 4px; }
 .el-stack > .unit.fused, .el-stack > .unit.fused + * { margin-top: 0; }
 
@@ -410,7 +419,7 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   /* On a phone the diagram would not fit, so the atoms simply flow. */
   .units-grid { display: flex; flex-wrap: wrap; gap: 8px; direction: rtl; align-items: flex-start; }
   .units-formula { gap: 12px; }
-  .el-stack > * + * { margin-top: -74px; }
+  .el-stack { --w: 72px; }
   /* A pile with nothing in it still shows where its atoms go. */
   .el-stack .slot-empty { display: flex; width: 72px; }
   .slot-empty { display: none; }
