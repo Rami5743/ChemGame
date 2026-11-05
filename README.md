@@ -39,9 +39,10 @@ entry screen also links to the printed game at The Game Crafter.
 2. Copy the link and send it to the other players. Whoever opens it appears in
    the lobby; anybody who did not type a name is seated as שחקן 2, שחקן 3 and
    so on, in the order they arrived.
-3. The host orders the seats with the ▲▼ buttons, sets how many atom and
-   molecule cards each player gets — 12 and 3 by default — and presses
-   **התחל משחק**. The room then locks.
+3. The host orders the seats — dragging one by its handle to where it should
+   go, or stepping it with the ▲▼ buttons — sets how many atom and molecule
+   cards each player gets (12 and 3 by default) and presses **התחל משחק**.
+   The room then locks.
 4. Get rid of all your atom cards to win.
 
 On your turn you put one atom on the table so that what is on the table is

@@ -213,7 +213,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     // the pile, and a fusion is never taken back.
     let move = null;
     if (g.phase === 'takeback' && !tookBack) {
-      const mine = g.area.units.find(
+      // The last one he laid is the one on top of its pile, and the only one
+      // of his that a click can reach there.
+      const mine = [...g.area.units].reverse().find(
         (u) => u.by === actor && u.cards.length === 1 && u.cards[0].el !== FUSION
       );
       if (mine) move = { t: 'takeBack', card: mine.cards[0].id };

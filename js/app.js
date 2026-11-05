@@ -780,6 +780,7 @@ function chosenMoleculeId() {
 
 function render() {
   if (!snapshot) return;
+  if (dragging) return; // a row is in the host's hand; leave the list alone
   if (snapshot.phase === 'lobby') {
     show('lobby');
     renderLobby();
@@ -789,11 +790,60 @@ function render() {
   }
 }
 
+// The host can take a seat by its handle and put it where he wants it. While
+// that is going on the list is left alone, or the snapshot that arrives every
+// other second would pull the row out of his hand.
+let dragging = null;
+
+function dragSeat(event, li) {
+  if (!host || host.locked) return;
+  event.preventDefault();
+  const list = $('roster');
+  dragging = li;
+  li.classList.add('dragging');
+  // The pointer is followed on the window: taking the row out of the list and
+  // putting it back lets go of anything captured on the row itself.
+  const over = (e) => {
+    const others = [...list.children].filter((x) => x !== li);
+    const before = others.find((x) => {
+      const box = x.getBoundingClientRect();
+      return e.clientY < box.top + box.height / 2;
+    });
+    list.insertBefore(li, before || null);
+  };
+  const done = () => {
+    window.removeEventListener('pointermove', over);
+    window.removeEventListener('pointerup', done);
+    window.removeEventListener('pointercancel', done);
+    li.classList.remove('dragging');
+    dragging = null;
+    seatsAre([...list.children].map((x) => x.dataset.id));
+  };
+  window.addEventListener('pointermove', over);
+  window.addEventListener('pointerup', done);
+  window.addEventListener('pointercancel', done);
+}
+
+// The order the rows are in is the order of play.
+function seatsAre(ids) {
+  if (!host || host.locked ||
+      ids.length !== host.order.length ||
+      ids.some((id) => !host.players.has(id))) {
+    render();
+    return;
+  }
+  host.order = ids;
+  // The list is left as the host put it: it is drawn again when his own
+  // snapshot comes back, and drawing it now would only flicker back.
+  publishState();
+}
+
 function renderLobby() {
   const list = $('roster');
   list.textContent = '';
   snapshot.order.forEach((p, i) => {
     const li = document.createElement('li');
+    li.dataset.id = p.id;
 
     const seat = document.createElement('span');
     seat.className = 'seat';
@@ -825,6 +875,15 @@ function renderLobby() {
     }
 
     if (isHost) {
+      const grip = document.createElement('button');
+      grip.className = 'grip';
+      grip.type = 'button';
+      grip.textContent = '⠿';
+      grip.title = t('lobby.drag');
+      grip.setAttribute('aria-label', t('lobby.drag'));
+      grip.addEventListener('pointerdown', (e) => dragSeat(e, li));
+      li.prepend(grip);
+
       const up = document.createElement('button');
       up.className = 'move';
       up.textContent = '▲';
@@ -944,6 +1003,8 @@ function chooseView(view) {
   render();
 }
 
+const canTakeBack = (u) => (u.by === me.id && u.cards.length === 1 ? 1 : 0);
+
 // A pile for each element the molecule asks for, with how many of them are
 // down and how many are wanted written above it.
 function renderFormula(g, grid, takingBack) {
@@ -967,11 +1028,17 @@ function renderFormula(g, grid, takingBack) {
     head.title = nameIn(ELEMENTS[el], lang());
 
     const stack = document.createElement('div');
-    // While a card may be taken back, the pile is opened out: a card with
-    // another one lying on it cannot be clicked.
-    stack.className = 'el-stack' + (takingBack ? ' open' : '');
+    stack.className = 'el-stack';
     if (down.length) {
-      for (const u of down) stack.append(unitEl(u, takingBack));
+      // The cards of a pile are the same card, so which of them is on top
+      // matters only when one may be taken back: then the player's own card
+      // goes up, since a card with another one lying on it cannot be clicked
+      // and a fusion is never taken back anyway.
+      const order = takingBack
+        ? [...down].sort((a, b) => canTakeBack(a) - canTakeBack(b))
+        : down;
+      const top = order[order.length - 1];
+      for (const u of order) stack.append(unitEl(u, takingBack && u === top));
     } else {
       stack.append(emptySlotEl(el));
     }

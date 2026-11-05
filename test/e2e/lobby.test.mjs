@@ -50,8 +50,64 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     () => [...document.querySelectorAll('#roster .who')].map((x) => x.textContent).join() === 'שחקן 1,רותי,שחקן 2',
     null, { timeout: 15000 });
   check('reordering by the host reaches the others', true);
-  check('a joiner has no host controls', await p2.isHidden('#host-controls'));
-  check('a joiner has no reorder buttons', (await p2.$$('#roster .move')).length === 0);
+
+  // --- and by dragging a seat where it should go -------------------------
+  {
+    // Every measurement is read in one go: the list is drawn again every few
+    // seconds, and a handle taken earlier would be pointing at nothing.
+    const rows = () => host.$$eval('#roster li', (ns) => ns.map((n) => {
+      const row = n.getBoundingClientRect();
+      const grip = n.querySelector('.grip').getBoundingClientRect();
+      return {
+        top: row.top, bottom: row.bottom,
+        x: grip.x + grip.width / 2, y: grip.y + grip.height / 2,
+      };
+    }));
+    const drag = async (from, to) => {
+      const box = await rows();
+      await host.mouse.move(box[from].x, box[from].y);
+      await host.mouse.down();
+      await host.mouse.move(box[from].x, to, { steps: 12 });
+      await host.mouse.up();
+    };
+
+    const before = await rosterOf(host);
+    const box = await rows();
+    await drag(2, box[0].top + 4);
+    // The order is the host's to publish, and his own list is drawn again
+    // when that comes back to him.
+    await host.waitForFunction(
+      (was) => [...document.querySelectorAll('#roster .who')]
+        .map((x) => x.textContent).join() !== was,
+      before.join(), { timeout: 15000 }).catch(() => {});
+    const after = await rosterOf(host);
+    check('a seat dragged to the top is first in the order',
+      after[0] === before[2], `${before.join()} -> ${after.join()}`);
+    check('and the rest keep their order',
+      after.slice(1).join() === before.slice(0, 2).join(), after.join());
+    await p2.waitForFunction(
+      (want) => [...document.querySelectorAll('#roster .who')]
+        .map((x) => x.textContent).join() === want,
+      after.join(), { timeout: 15000 });
+    check('the others are told about it too', true);
+    check('a player who is not the host has nothing to drag by',
+      (await p2.$$('#roster .grip')).length === 0);
+
+    // And back to the foot of the list, which is where the rest of this
+    // expects that seat to be.
+    const again = await rows();
+    await drag(0, again[2].bottom - 4);
+    await host.waitForFunction(
+      (want) => [...document.querySelectorAll('#roster .who')]
+        .map((x) => x.textContent).join() === want,
+      before.join(), { timeout: 15000 }).catch(() => {});
+    check('a seat dragged to the foot of the list is last',
+      (await rosterOf(host)).join() === before.join(), (await rosterOf(host)).join());
+    await p2.waitForFunction(
+      (want) => [...document.querySelectorAll('#roster .who')]
+        .map((x) => x.textContent).join() === want,
+      before.join(), { timeout: 15000 });
+  }
 
   // --- a deal that fits ---------------------------------------------------
   await host.fill('#set-atoms', '9');

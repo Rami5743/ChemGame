@@ -1,6 +1,6 @@
 // The two ways of showing the table: the shape the card draws, and a pile
 // for each element of the formula.
-import { formulaOf } from '../../js/rules.js';
+import { formulaOf, isPartOf } from '../../js/rules.js';
 import { FUSION } from '../../js/cards.js';
 import { openPlayer, connected } from '../support/player.mjs';
 
@@ -138,6 +138,42 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('which is what each of them is showing',
     await two.isVisible('#table-units.units-grid') &&
     await phone.isVisible('#table-units.units-formula'));
+
+  /* ---------- taking a card back out of a pile ---------- */
+  await two.click('#table-views button[data-view="formula"]');
+  const mine = await two.evaluate(() => window.chemgame.me().id);
+  let guard = 0;
+  while (guard++ < 30) {
+    const state = await readState(two);
+    if (state.game.phase !== 'building') break;
+    const page = seats[state.turn];
+    const cards = await readCards(page);
+    const want = formulaOf(state.game.area.molecule, state.game.area.alkaneN);
+    const here = {};
+    for (const u of state.game.area.units) here[u.el] = (here[u.el] || 0) + 1;
+    const atom = cards.atoms.find(
+      (c) => c.el !== FUSION && isPartOf({ ...here, [c.el]: (here[c.el] || 0) + 1 }, want)
+    );
+    if (!atom || (await send(page, { t: 'placeUnit', cards: [atom.id] }))) break;
+    await waitRev(two, state.rev);
+  }
+  const done = await readState(two);
+  check('the molecule was filled to the end', done.game.phase === 'takeback', done.game.phase);
+  check('and the one who opened it is asked about his card',
+    done.game.takeback.pending.includes(mine));
+
+  // Taking a card back is a move like any other: it is chosen first.
+  await two.click('#actions button[data-act="takeOne"]');
+  const top = '#table .el-stack > .unit:last-child .cardbtn.pickable';
+  check('his own card is the one lying on top of its pile',
+    (await two.$$(top)).length > 0);
+  check('and the ones under it are not to be clicked',
+    (await two.$$('#table .el-stack > .unit:not(:last-child) .cardbtn.pickable')).length === 0);
+  const held = (await readCards(two)).atoms.length;
+  await two.click(top);
+  await waitRev(two, done.rev);
+  check('and clicking it takes it back into his hand',
+    (await readCards(two)).atoms.length === held + 1);
 
   for (const p of [two, phone]) await p.context().close();
 }
