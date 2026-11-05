@@ -42,8 +42,13 @@ async function clickMove(page, move) {
       await page.click(card('#overlay-cards', move.card));
       break;
     case 'takeBack':
+      // The page may still be a snapshot behind, so the buttons of this phase
+      // are waited for rather than assumed.
+      await page.waitForSelector(action('takeOne'), { timeout: 20000 });
       if (move.card) {
         await page.click(action('takeOne'));
+        await page.waitForSelector(`${card('#table-units', move.card)}.pickable`,
+          { timeout: 10000 });
         await page.click(card('#table-units', move.card));
       } else {
         await page.click(action('takeNothing'));
@@ -267,6 +272,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         }
       }
       try {
+        page.setDefaultTimeout(20000);
         await clickMove(page, m);
       } catch (e) {
         lastErr = 'click: ' + String(e.message).split('\n')[0];
