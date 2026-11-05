@@ -83,6 +83,8 @@ const WORDS = {
     'seat.counts': 'קלפי אטום · קלפי מולקולה',
 
     'game.area': 'אזור המשחק',
+    'view.shape': 'נוסחת מבנה',
+    'view.formula': 'נוסחת מולקולה',
     'game.yourCards': 'הקלפים שלך',
     'game.seatOrder': 'סדר השחקנים',
     'game.spectator': 'המשחק כבר התחיל והחדר נעול. אתה צופה בלבד.',
@@ -221,6 +223,8 @@ const WORDS = {
     'seat.counts': 'atom cards · molecule cards',
 
     'game.area': 'The table',
+    'view.shape': 'Structural formula',
+    'view.formula': 'Molecular formula',
     'game.yourCards': 'Your cards',
     'game.seatOrder': 'Order of play',
     'game.spectator': 'The game has started and the room is locked. You are watching.',

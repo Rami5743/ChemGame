@@ -256,6 +256,12 @@ export function apply(state, playerId, move) {
   }
 }
 
+// Only the alkanes card stands for a number of carbons; on any other card a
+// number that came along is nothing.
+function carbonsOf(card, move) {
+  return MOLECULES[card.mol]?.special === 'alkanes' ? move.alkaneN ?? null : null;
+}
+
 function applyStartMolecule(state, playerId, move) {
   if (state.phase !== 'opening') return fail('cannotOpenNow');
   const hand = state.hands[playerId];
@@ -266,7 +272,7 @@ function applyStartMolecule(state, playerId, move) {
   const taken = takeCards(hand.atoms, move.cards || []);
   if (taken.error) return fail(taken.error);
 
-  state.area = { molecule: card, alkaneN: move.alkaneN ?? null, units: [] };
+  state.area = { molecule: card, alkaneN: carbonsOf(card, move), units: [] };
   const placed = placeUnitInto(state, playerId, taken.picked, formula);
   if (!placed.ok) {
     state.area = { molecule: null, alkaneN: null, units: [] };
@@ -335,7 +341,7 @@ function applySwapMolecule(state, playerId, move) {
 
   state.molDiscard.push(state.area.molecule);
   state.area.molecule = card;
-  state.area.alkaneN = move.alkaneN ?? null;
+  state.area.alkaneN = carbonsOf(card, move);
   hand.molecules.splice(hand.molecules.indexOf(card), 1);
   removeCards(hand.atoms, taken.picked);
   state.area.units.push({ by: playerId, el: unit.el, cards: taken.picked });

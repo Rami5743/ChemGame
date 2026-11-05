@@ -62,6 +62,15 @@ simply be clicked: a molecule when one has to be opened, an atom while one is
 being built. The other moves are on the bar beside it, and a fusion is the one
 thing that waits for a confirmation.
 
+The table itself is shown one of two ways, and two buttons above it switch
+between them. **נוסחת מבנה** stands the atoms where the card's own diagram
+draws them, with the places still missing marked out. **נוסחת מולקולה** gives
+each element of the formula a pile of its own, with its symbol and how many of
+its atoms are down out of how many are wanted written above it. A phone has no
+room for the diagram and glucose has too many atoms for it on any screen, so
+those open on the piles; everything else opens on the shape. A choice of the
+player's own holds for as long as that molecule is on the table.
+
 When a game is won, the host can deal again to the same players, changing the
 two sizes first.
 

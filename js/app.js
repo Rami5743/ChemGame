@@ -1,6 +1,6 @@
 import { createBus, brokerList } from './net.js';
 import { t, lang, setLang, onLang, applyStaticWords } from './i18n.js';
-import { newGame, apply, publicView, privateView } from './rules.js';
+import { newGame, apply, publicView, privateView, formulaOf } from './rules.js';
 import { layoutFor } from './layouts.js';
 import {
   MOLECULES,
@@ -84,6 +84,9 @@ function setStatus(state) {
 
 // Tapping the chip says which brokers answered and which did not.
 $('status').addEventListener('click', toggleLinks);
+for (const b of document.querySelectorAll('#table-views button')) {
+  b.addEventListener('click', () => chooseView(b.dataset.view));
+}
 
 /* ---------- entry screen ---------- */
 
@@ -915,6 +918,72 @@ function renderSeats(g, waiting) {
   });
 }
 
+// How the table is laid out: the shape the card draws, or a pile for each
+// element of the formula. A phone has no room for the shape, and glucose has
+// too many atoms for it on any screen, so those open on the piles; everywhere
+// else the shape is what a player sees first. A choice of his own holds for as
+// long as that molecule is on the table.
+let tableView = null;
+let viewFor = null;
+
+const onPhone = () => window.matchMedia('(max-width: 640px)').matches;
+
+function defaultView(molecule) {
+  return onPhone() || molecule === 'glucose' ? 'formula' : 'shape';
+}
+
+function viewOf(g) {
+  const molecule = g.area.molecule;
+  if (!molecule) return 'shape';
+  return tableView && viewFor === molecule ? tableView : defaultView(molecule);
+}
+
+function chooseView(view) {
+  tableView = view;
+  viewFor = snapshot?.game?.area?.molecule || null;
+  render();
+}
+
+// A pile for each element the molecule asks for, with how many of them are
+// down and how many are wanted written above it.
+function renderFormula(g, grid, takingBack) {
+  const formula = formulaOf(g.area.molecule, g.area.alkaneN) || {};
+  grid.className = 'units-formula';
+  const mine = new Map();
+  for (const u of g.area.units) {
+    if (!mine.has(u.el)) mine.set(u.el, []);
+    mine.get(u.el).push(u);
+  }
+  for (const [el, wanted] of Object.entries(formula)) {
+    const down = mine.get(el) || [];
+    mine.delete(el);
+    const pile = document.createElement('div');
+    pile.className = 'el-pile' + (down.length >= wanted ? ' full' : '');
+
+    const head = document.createElement('span');
+    head.className = 'el-head';
+    head.dir = 'ltr';
+    head.textContent = `${el} ${down.length}/${wanted}`;
+    head.title = nameIn(ELEMENTS[el], lang());
+
+    const stack = document.createElement('div');
+    // While a card may be taken back, the pile is opened out: a card with
+    // another one lying on it cannot be clicked.
+    stack.className = 'el-stack' + (takingBack ? ' open' : '');
+    if (down.length) {
+      for (const u of down) stack.append(unitEl(u, takingBack));
+    } else {
+      stack.append(emptySlotEl(el));
+    }
+    pile.append(head, stack);
+    grid.append(pile);
+  }
+  // Anything on the table the formula did not ask for still has to be seen.
+  for (const left of mine.values()) {
+    for (const u of left) grid.append(unitEl(u, takingBack));
+  }
+}
+
 function renderTable(g, myMove) {
   const slot = $('table-mol');
   slot.textContent = '';
@@ -935,6 +1004,17 @@ function renderTable(g, myMove) {
   const takingBack = myMove && g.phase === 'takeback' && currentStep() === 'table';
   const grid = $('table-units');
   grid.textContent = '';
+
+  const views = $('table-views');
+  views.classList.toggle('hidden', !g.area.molecule);
+  const view = viewOf(g);
+  for (const b of views.querySelectorAll('button')) {
+    b.classList.toggle('active', b.dataset.view === view);
+  }
+  if (g.area.molecule && view === 'formula') {
+    renderFormula(g, grid, takingBack);
+    return;
+  }
 
   const layout = g.area.molecule ? layoutFor(g.area.molecule, g.area.alkaneN) : null;
   grid.className = layout ? 'units-grid' : 'units-grid units-plain';

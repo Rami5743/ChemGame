@@ -259,6 +259,44 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   direction: rtl;
   align-items: flex-start;
 }
+/* The other way of showing the table: a pile for each element of the
+   formula, with what is down and what is wanted written above it. */
+.area-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.area-head h3 { margin-inline-end: 0; }
+.views { display: flex; gap: 6px; }
+.views.hidden { display: none; }  /* .hidden is set earlier in this file */
+.views button {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #2b3a52;
+  background: #18202c;
+  color: var(--muted);
+  cursor: pointer;
+}
+.views button:hover { color: #e8eef7; }
+.views button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06111f;
+  font-weight: 700;
+}
+.units-formula {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  direction: rtl;
+  align-items: flex-start;
+}
+.el-pile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.el-head { font-weight: 700; font-size: 15px; color: var(--muted); }
+.el-pile.full .el-head { color: var(--accent); }
+.el-stack { display: flex; flex-direction: column; align-items: center; }
+.el-stack > * + * { margin-top: -90px; }
+.el-stack.open > * + * { margin-top: 4px; }
+.el-stack > .unit.fused, .el-stack > .unit.fused + * { margin-top: 0; }
+
 .unit { display: flex; gap: 4px; padding: 4px; border-radius: 10px; }
 .unit.fused {
   flex-direction: column;
@@ -371,6 +409,10 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   .slot .cardbtn { --w: 100px; }
   /* On a phone the diagram would not fit, so the atoms simply flow. */
   .units-grid { display: flex; flex-wrap: wrap; gap: 8px; direction: rtl; align-items: flex-start; }
+  .units-formula { gap: 12px; }
+  .el-stack > * + * { margin-top: -74px; }
+  /* A pile with nothing in it still shows where its atoms go. */
+  .el-stack .slot-empty { display: flex; width: 72px; }
   .slot-empty { display: none; }
   .stack { width: 72px; }
   .decks { gap: 12px; }

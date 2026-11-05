@@ -1,6 +1,6 @@
 // Opens one browser context on the site and joins, as one person would.
-export async function openPlayer({ browser, url, name, consoleErrors, label }) {
-  const ctx = await browser.newContext();
+export async function openPlayer({ browser, url, name, consoleErrors, label, viewport }) {
+  const ctx = await browser.newContext(viewport ? { viewport } : {});
   const page = await ctx.newPage();
   const tag = label || name || 'anon';
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(`[${tag}] ${m.text()}`); });

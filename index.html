@@ -93,7 +93,13 @@
       <div class="main">
         <div id="turn-banner" class="banner"></div>
 
-        <h3 data-t="game.area">אזור המשחק</h3>
+        <div class="area-head">
+          <h3 data-t="game.area">אזור המשחק</h3>
+          <div id="table-views" class="views hidden">
+            <button type="button" data-view="shape" data-t="view.shape">נוסחת מבנה</button>
+            <button type="button" data-view="formula" data-t="view.formula">נוסחת מולקולה</button>
+          </div>
+        </div>
         <div id="table" class="table">
           <div id="table-mol" class="slot"></div>
           <div id="table-units" class="units-grid"></div>
