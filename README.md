@@ -43,11 +43,16 @@ entry screen also links to the printed game at The Game Crafter.
 2. Copy the link and send it to the other players. Whoever opens it appears in
    the lobby; anybody who did not type a name is seated as שחקן 2, שחקן 3 and
    so on, in the order they arrived.
-3. The host orders the seats — dragging one by its handle to where it should
+3. The host may seat robots as well, **הוסף רובוט**, as many as he likes.
+   They come named — דניאל, R2-D2, C-3PO, מרווין, הל — and he can rename any
+   of them, move them in the order or take them away again. A robot plays on
+   the host's page, a second or two to a move, and its name is written in a
+   colour of its own wherever it stands.
+4. The host orders the seats — dragging one by its handle to where it should
    go, or stepping it with the ▲▼ buttons — sets how many atom and molecule
    cards each player gets (12 and 3 by default) and presses **התחל משחק**.
    The room then locks.
-4. Get rid of all your atom cards to win.
+5. Get rid of all your atom cards to win.
 
 On your turn you put one atom on the table so that what is on the table is
 still part of the molecule in play, or you discard that molecule and lay one of
@@ -78,6 +83,14 @@ player's own holds for as long as that molecule is on the table.
 
 When a game is won, the host can deal again to the same players, changing the
 two sizes first.
+
+A robot wants what a player wants, and goes about it simply: an oxygen is the
+hardest card to place, so whatever lets one go down is taken first, and the
+molecule in play is traded for another if that is what it takes; a fusion is
+spent only when nothing else fits; a new molecule is opened when an oxygen is
+held and nothing on offer takes it; and glucose, which asks for six oxygens,
+only with three or more of them in hand. `js/bot.js` holds all of it, and it
+sees no more than a player sees.
 
 ## Deploying
 
@@ -127,6 +140,7 @@ either is dropped.
 | `js/cards.js`      | the printed deck as a catalogue, and the art paths    |
 | `js/i18n.js`       | every word the game says, in both languages           |
 | `js/rules.js`      | the game itself — no network, no DOM                  |
+| `js/bot.js`        | what a robot plays, from what a player can see        |
 | `js/net.js`        | broker connection, topics, retained messages          |
 | `js/app.js`        | screens, rendering, host bookkeeping                  |
 | `assets/cards`     | the card images the page serves, one folder a language |

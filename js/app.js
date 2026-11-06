@@ -1,6 +1,7 @@
 import { createBus, brokerList, shownAs } from './net.js';
 import { t, lang, setLang, onLang, applyStaticWords } from './i18n.js';
 import { newGame, apply, publicView, privateView, formulaOf } from './rules.js';
+import { botMove, BOT_NAMES, BOT_NAMES_EN } from './bot.js';
 import { layoutFor } from './layouts.js';
 import {
   MOLECULES,
@@ -313,11 +314,16 @@ function connect() {
       rev: 0,
       lastSig: '',
       done: new Set(),
+      bots: new Map(),  // id -> name, the seats the host plays himself
     };
     bus = hostFanout(brokerList());
     let tick = 0;
     setInterval(() => {
       host.players.get(me.id).last = Date.now();
+      for (const id of host.bots.keys()) {
+        const seat = host.players.get(id);
+        if (seat) seat.last = Date.now();
+      }
       answerForTheAbsent();
       // Every tenth second the snapshot goes out whether it changed or not,
       // so the others can tell a quiet host from a host who has gone.
@@ -354,6 +360,7 @@ function connect() {
   $('share').value = shareLink();
   $('copy').addEventListener('click', copyLink);
   $('start').addEventListener('click', startGame);
+  $('add-bot').addEventListener('click', addBot);
   for (const id of ['set-atoms', 'set-mols']) {
     $(id).addEventListener('input', () => {
       if (!host || host.locked) return;
@@ -439,7 +446,7 @@ function buildState() {
   const now = Date.now();
   const row = (id) => {
     const p = host.players.get(id);
-    return { id, name: p.name, online: now - p.last < OFFLINE_MS };
+    return { id, name: p.name, online: p.bot || now - p.last < OFFLINE_MS, bot: !!p.bot };
   };
   if (!host.locked) {
     return { phase: 'lobby', host: me.id, order: host.order.map(row), deal: host.deal };
@@ -523,6 +530,7 @@ function onAct(msg) {
     }
     sendHands();
     publishState(true);
+    stirBots();
     return;
   }
 
@@ -581,6 +589,72 @@ function lobbyError(text) {
   $('lobby-note').classList.add('error');
 }
 
+/* ---------- the robots ---------- */
+
+// A robot is a seat like any other, except that the host moves for it. It is
+// never waited for and never counted as gone.
+const BOT_PAUSE = [1000, 2000];
+let botTimer = null;
+
+const botNames = () => (lang() === 'en' ? BOT_NAMES_EN : BOT_NAMES);
+
+function addBot() {
+  if (!host || host.locked) return;
+  const taken = new Set([...host.players.values()].map((p) => p.name));
+  const name = botNames().find((n) => !taken.has(n)) ||
+    `${botNames()[0]} ${host.bots.size + 1}`;
+  const id = `bot_${Math.random().toString(36).slice(2, 9)}`;
+  host.bots.set(id, name);
+  host.players.set(id, { id, name, last: Date.now(), bot: true });
+  host.order.push(id);
+  publishState();
+}
+
+function dropBot(id) {
+  if (!host || host.locked || !host.bots.has(id)) return;
+  host.bots.delete(id);
+  host.players.delete(id);
+  host.order = host.order.filter((x) => x !== id);
+  publishState();
+}
+
+function nameBot(id, name) {
+  if (!host || host.locked || !host.bots.has(id)) return;
+  const given = String(name || '').slice(0, 16);
+  host.bots.set(id, given);
+  host.players.get(id).name = given || botNames()[0];
+  publishState();
+}
+
+// After every turn the host looks at whose move it is, and if it is a robot's
+// he makes it, a second or two later so that it can be watched.
+function stirBots() {
+  if (!host || !host.game || host.game.winner || botTimer) return;
+  const g = host.game;
+  const who = g.phase === 'takeback' ? g.takeback.pending[0] : g.seats[g.turn];
+  if (!host.bots.has(who)) return;
+  const wait = BOT_PAUSE[0] + Math.random() * (BOT_PAUSE[1] - BOT_PAUSE[0]);
+  botTimer = setTimeout(() => {
+    botTimer = null;
+    playBot(who);
+  }, wait);
+}
+
+function playBot(id) {
+  if (!host || !host.game || !host.bots.has(id)) return;
+  const g = host.game;
+  const move = botMove(publicView(g), privateView(g, id));
+  if (!move) return;
+  const r = apply(g, id, move);
+  if (!r.ok) {
+    // It asked for something the rules refuse; let it pass rather than stall.
+    apply(g, id, g.phase === 'takeback' ? { t: 'takeBack', card: null } : { t: 'pass' });
+  }
+  sendHands();
+  publishState(true);
+  stirBots();
+}
+
 function startGame() {
   if (!host || host.locked) return;
   if (host.order.length < 2) {
@@ -597,6 +671,7 @@ function startGame() {
   host.game = newGame({ seats: [...host.order], deal, seed: gameSeed() });
   sendHands();
   publishState(true);
+  stirBots();
 }
 
 // A player who has dropped off must not hold the whole table up at the one
@@ -607,7 +682,7 @@ function answerForTheAbsent() {
   const now = Date.now();
   for (const id of [...g.takeback.pending]) {
     const p = host.players.get(id);
-    if (p && now - p.last > OFFLINE_MS) apply(g, id, { t: 'takeBack', card: null });
+    if (p && !p.bot && now - p.last > OFFLINE_MS) apply(g, id, { t: 'takeBack', card: null });
   }
   sendHands();
   publishState(true);
@@ -630,6 +705,7 @@ function startAgain() {
   });
   sendHands();
   publishState(true);
+  stirBots();
 }
 
 // Sends a move and resolves with null when it went through, or with the
@@ -852,9 +928,20 @@ function renderLobby() {
     seat.className = 'seat';
     seat.textContent = `${i + 1}.`;
 
-    const who = document.createElement('span');
-    who.className = 'who';
-    who.textContent = p.name;
+    let who;
+    if (p.bot && isHost) {
+      who = document.createElement('input');
+      who.className = 'who botname';
+      who.value = p.name;
+      who.maxLength = 16;
+      who.setAttribute('aria-label', t('lobby.botName'));
+      who.addEventListener('input', () => nameBot(p.id, who.value));
+      who.addEventListener('pointerdown', (e) => e.stopPropagation());
+    } else {
+      who = document.createElement('span');
+      who.className = 'who' + (p.bot ? ' bot' : '');
+      who.textContent = p.name;
+    }
 
     li.append(seat, who);
 
@@ -900,6 +987,16 @@ function renderLobby() {
       down.addEventListener('click', () => moveSeat(p.id, 1));
 
       li.append(up, down);
+
+      if (p.bot) {
+        const away = document.createElement('button');
+        away.className = 'move drop';
+        away.type = 'button';
+        away.textContent = '\u2715';
+        away.title = t('lobby.dropBot');
+        away.addEventListener('click', () => dropBot(p.id));
+        li.append(away);
+      }
     }
 
     list.append(li);
@@ -967,7 +1064,7 @@ function renderSeats(g, waiting) {
     seat.textContent = `${i + 1}.`;
 
     const who = document.createElement('span');
-    who.className = 'who';
+    who.className = 'who' + (p.bot ? ' bot' : '');
     who.textContent = p.name + (p.id === me.id ? ` (${t('seat.you')})` : '');
 
     const count = document.createElement('span');

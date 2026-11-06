@@ -5,6 +5,7 @@
   --ink: #e8edf5;
   --dim: #94a1b5;
   --accent: #4da3ff;
+  --bot: #c9a0ff;
   --good: #46c17a;
   --warn: #e0a33e;
   --bad: #e2605a;
@@ -119,6 +120,20 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 }
 .roster .seat { color: var(--dim); font-variant-numeric: tabular-nums; min-width: 1.6em; }
 .roster .who { flex: 1; font-weight: 600; }
+/* A robot is written in a colour of its own, wherever its name stands. */
+.who.bot { color: var(--bot); }
+.roster input.botname {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--bot);
+  background: #121820;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+.roster .move.drop { color: var(--warn); }
 .roster .tag { font-size: 12px; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
 .roster .tag.me { color: var(--accent); border-color: #2d4f73; }
 .roster .tag.off { color: var(--warn); border-color: #5c4a22; }
