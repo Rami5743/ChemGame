@@ -67,7 +67,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   {
     const gone = (await b.evaluate(() => window.chemgame.me())).id;
     await b.context().close();
-    await host.waitForSelector('#players li.gone', { timeout: 25000 });
+    // A player is given five missed heartbeats before he counts as gone.
+    await host.waitForSelector('#players li.gone', { timeout: 45000 });
     const marked = await host.$$eval('#players li.gone .who', (n) => n.map((x) => x.textContent));
     check('the player who left is marked in the seat list', marked.length === 1 && marked[0].includes('גיא'), marked.join());
     check('his seat is still his', (await host.$$('#players li')).length === 3, gone);

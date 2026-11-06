@@ -294,6 +294,11 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     }
     moves += 1;
     if (!acted) {
+      // The host answers the taking-back for anybody he believes has left, so
+      // under load the phase can pass while a click is being made. A plan the
+      // game has moved past is not a game that is stuck.
+      const now = await readState(host);
+      if (now.rev !== state.rev) continue;
       const seen = await page.evaluate(() => {
         const s = window.chemgame.state();
         const el = document.getElementById('actions');

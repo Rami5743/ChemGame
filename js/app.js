@@ -19,7 +19,10 @@ const DEFAULT_DEAL = { atoms: 12, molecules: 3 };
 const DECK_SIZE = { atoms: 72, molecules: 36 };
 
 const HEARTBEAT_MS = 4000;
-const OFFLINE_MS = 12000;
+// Five missed heartbeats, not three: a phone on a slow network goes quiet for
+// a few seconds at a time, and a player counted as gone has his turn taken
+// for him.
+const OFFLINE_MS = 22000;
 const STALE_MS = 20000;
 const NO_HOST_MS = 15000;
 const PATIENCE_MS = 9000;
