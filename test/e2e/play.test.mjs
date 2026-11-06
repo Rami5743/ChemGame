@@ -294,7 +294,25 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
     }
     moves += 1;
     if (!acted) {
-      stuck = `stuck in ${g.phase} after ${moves} moves (${lastErr})`;
+      const seen = await page.evaluate(() => {
+        const s = window.chemgame.state();
+        const el = document.getElementById('actions');
+        const box = el ? el.getBoundingClientRect() : null;
+        return {
+          rev: s?.rev, phase: s?.game?.phase, pending: s?.game?.takeback?.pending,
+          me: window.chemgame.me().id, turn: s?.turn,
+          acts: [...document.querySelectorAll('#actions button')]
+            .map((b) => b.dataset.act + (b.disabled ? '!' : '')).join(),
+          alert: !document.getElementById('alert').classList.contains('hidden'),
+          alertText: document.getElementById('alert').textContent.slice(0, 60),
+          overlay: !document.getElementById('overlay').classList.contains('hidden'),
+          box: box ? [Math.round(box.x), Math.round(box.y), Math.round(box.width)] : null,
+          view: document.getElementById('view-game').classList.contains('hidden') ? 'hidden' : 'shown',
+        };
+      }).catch((e) => ({ failed: String(e.message).split('\n')[0] }));
+      const hostRev = await readState(host).then((s) => s.rev).catch(() => '?');
+      stuck = `stuck in ${g.phase} after ${moves} moves (${lastErr}) ` +
+        `actor=${actor} hostRev=${hostRev} page=${JSON.stringify(seen)}`;
       break;
     }
   }
