@@ -312,6 +312,9 @@ function connect() {
       deal: { ...DEFAULT_DEAL },
       game: null,
       rev: 0,
+      // This host, told apart from any other that may hold the same room, so
+      // that a game begun again is not taken for an old snapshot.
+      epoch: Date.now(),
       lastSig: '',
       done: new Set(),
       bots: new Map(),  // id -> name, the seats the host plays himself
@@ -408,8 +411,9 @@ function onMessage(sub, msg) {
       repaint = true;
     }
     // Every broker the two share carries the same snapshot. A copy that is
-    // not newer than the one on the screen is one copy too many.
-    if (snapshot && msg.rev <= snapshot.rev) {
+    // not newer than the one on the screen is one copy too many — unless it
+    // comes from another host, whose count starts afresh.
+    if (snapshot && msg.epoch === snapshot.epoch && msg.rev <= snapshot.rev) {
       if (repaint) render();
       return;
     }
@@ -449,7 +453,10 @@ function buildState() {
     return { id, name: p.name, online: p.bot || now - p.last < OFFLINE_MS, bot: !!p.bot };
   };
   if (!host.locked) {
-    return { phase: 'lobby', host: me.id, order: host.order.map(row), deal: host.deal };
+    return {
+      phase: 'lobby', host: me.id, epoch: host.epoch,
+      order: host.order.map(row), deal: host.deal,
+    };
   }
   // Everything the rules make public travels, minus what the seats already
   // carry, so a new field never has to be listed here twice.
@@ -458,6 +465,7 @@ function buildState() {
   return {
     phase: 'game',
     host: me.id,
+    epoch: host.epoch,
     deal: host.deal,
     order: host.order.map((id) => ({
       ...row(id),
@@ -712,13 +720,23 @@ function startAgain() {
 // reason it did not.
 function sendMove(move) {
   const seq = ++moveSeq;
+  const msg = { t: 'move', id: me.id, seq, mid: `${TAB}-${seq}`, move };
   const answer = new Promise((resolve) => {
     awaitingMove.set(seq, resolve);
+    // A connection that went to sleep while the page was away takes a moment
+    // to notice, and a move sent into it is lost without a word. It is said
+    // again, twice; the host counts a move by its mark, so a second copy of
+    // one he already made is dropped.
+    const again = [1800, 4200].map((wait) =>
+      setTimeout(() => {
+        if (!host && awaitingMove.has(seq)) bus.act(msg);
+      }, wait)
+    );
     setTimeout(() => {
+      for (const timer of again) clearTimeout(timer);
       if (awaitingMove.delete(seq)) resolve(t('move.noAnswer'));
-    }, 8000);
+    }, 9000);
   });
-  const msg = { t: 'move', id: me.id, seq, mid: `${TAB}-${seq}`, move };
   if (host) onAct(msg);
   else bus.act(msg);
   return answer;
@@ -859,7 +877,9 @@ function chosenMoleculeId() {
 
 function render() {
   if (!snapshot) return;
-  if (dragging) return; // a row is in the host's hand; leave the list alone
+  // A row in the host's hand holds the seat list still, and nothing else: a
+  // drag that was never let go of must not freeze the game screen with it.
+  if (dragging && snapshot.phase === 'lobby') return;
   if (snapshot.phase === 'lobby') {
     show('lobby');
     renderLobby();
@@ -874,11 +894,20 @@ function render() {
 // other second would pull the row out of his hand.
 let dragging = null;
 
+// A window that loses the pointer — the tab is left, the screen is turned off
+// — never sends the pointerup, so the drag is ended here as well.
+function endDrag() {
+  if (dragging) dragging();
+}
+window.addEventListener('blur', endDrag);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) endDrag();
+});
+
 function dragSeat(event, li) {
   if (!host || host.locked) return;
   event.preventDefault();
   const list = $('roster');
-  dragging = li;
   li.classList.add('dragging');
   // The pointer is followed on the window: taking the row out of the list and
   // putting it back lets go of anything captured on the row itself.
@@ -891,13 +920,15 @@ function dragSeat(event, li) {
     list.insertBefore(li, before || null);
   };
   const done = () => {
+    if (!dragging) return;
+    dragging = null;
     window.removeEventListener('pointermove', over);
     window.removeEventListener('pointerup', done);
     window.removeEventListener('pointercancel', done);
     li.classList.remove('dragging');
-    dragging = null;
     seatsAre([...list.children].map((x) => x.dataset.id));
   };
+  dragging = done;
   window.addEventListener('pointermove', over);
   window.addEventListener('pointerup', done);
   window.addEventListener('pointercancel', done);

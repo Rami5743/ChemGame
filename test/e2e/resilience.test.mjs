@@ -63,6 +63,31 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   }
   check('the game goes on after the reload', await playOne());
 
+  /* ---------- a move made while the connection is asleep ---------- */
+  {
+    const state = await readState(host);
+    const actor = state.game.phase === 'takeback' ? state.game.takeback.pending[0] : state.turn;
+    const page = pages[actor];
+    if (page !== host) {
+      const cards = await readCards(page);
+      const [move] = candidates(state, cards);
+      if (move) {
+        // The page is cut off, makes its move, and is let back in. Nothing
+        // told it the move was lost, so it must say it again by itself.
+        await page.context().setOffline(true);
+        const said = page.evaluate((m) => window.chemgame.move(m), move);
+        await page.waitForTimeout(1200);
+        await page.context().setOffline(false);
+        const answer = await Promise.race([
+          said,
+          new Promise((r) => setTimeout(() => r('timed out'), 20000)),
+        ]);
+        check('a move made while the connection was asleep still arrives',
+          answer === null, String(answer));
+      }
+    }
+  }
+
   /* ---------- a player disappears ---------- */
   {
     const gone = (await b.evaluate(() => window.chemgame.me())).id;
