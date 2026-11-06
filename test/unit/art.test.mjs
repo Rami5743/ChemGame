@@ -136,8 +136,10 @@ export default async function run({ check }) {
       new Set(terms.match(/,\s*'[^']+'\)/g)).size) < 8);
   const sheetCss = await readFile(join(root, 'css/facts.css'), 'utf8');
   check('on paper the English sheet is set as the printed one is: one column',
-    sheetCss.includes('@page { size: letter; margin: 0; }') &&
+    /@page \{ size: letter; margin: \d+mm 0; \}/.test(sheetCss) &&
     !sheetCss.includes('column-count'));
+  check('and every page keeps a margin at its head and foot',
+    !/@page \{[^}]*margin: 0;/.test(sheetCss));
   check('and its colours run to the edge of the paper',
     /section\.atoms \{[^}]*min-height: \d+vh/.test(sheetCss));
   check('no two photographs stand shoulder to shoulder',

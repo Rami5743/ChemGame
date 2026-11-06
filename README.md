@@ -30,8 +30,10 @@ which is what says the machinery is honest.
 In English there is no such file, so `facts.en.html` sets the same text in the
 same colours and `tools/build-facts-pdf.mjs` prints it — on paper in the
 setting of the printed sheet: one justified column with the photographs in the
-margins, the colours running to the edge of the paper, the atoms filling the
-first page and the molecules opening the next. The terms link out: the Hebrew
+margins, each below the one before it on its own side, the colours running to
+the left and right edges of the paper and a margin at the head and foot of
+every page, the atoms filling the first page and the molecules opening the
+next. The terms link out: the Hebrew
 to Wikipedia, the English to Grokipedia, about seventy subjects either way. The
 entry screen also links to the printed game at The Game Crafter.
 

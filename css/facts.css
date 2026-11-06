@@ -98,25 +98,26 @@ a:hover { text-decoration: underline; }
 header.band a { color: #fff; }
 
 /* Printed to a file, it keeps the page size of the sheet it came from. */
-/* No page margin: the colours of the sheet run to the edge of the paper,
-   as they do on the printed one. The room is made inside instead. */
-@page { size: letter; margin: 0; }
+/* Every page keeps a margin at its head and foot, so that nothing stands
+   against the edge of the paper and no photograph is cut by it. The sides
+   have none, so the colours of the sheet still run to the edge there. */
+@page { size: letter; margin: 10mm 0; }
 
 @media print {
   /* On paper the English sheet is set the way the Hebrew one was printed:
      one column of justified text across the page, with the photographs
      standing in the margins on either side of it, the atoms on the first
      page and the molecules on the next. */
-  body { font-size: 9.9pt; line-height: 1.3; background: var(--mols-bg); }
+  body { font-size: 9.6pt; line-height: 1.3; background: var(--mols-bg); }
   .inner { max-width: none; padding: 0 9mm; }
   header.band { padding: 7mm 0 6mm; }
   h1 { font-size: 18pt; text-align: center; width: 100%; }
   nav, .flags { display: none; }
 
-  section { padding: 6mm 0 7mm; }
+  section { padding: 5mm 0 6mm; }
   /* The atoms fill their page to the edge, as on the printed sheet, so the
      colour of the molecules never shows at the foot of the first page. */
-  section.atoms { background: var(--atoms-bg); min-height: 92vh; }
+  section.atoms { background: var(--atoms-bg); min-height: 91vh; }
   section.molecules { break-before: page; }
   h2 { font-size: 14pt; margin: 0 0 12px; }
   p { margin: 7px 0; orphans: 2; widows: 2; }
@@ -126,7 +127,7 @@ header.band a { color: #fff; }
      page. */
   figure { margin: 0 0 10px; break-inside: avoid; }
   figure.side { width: auto; max-width: 17%; }
-  figure.side img { max-height: 34mm; width: auto; max-width: 100%; margin: 0 auto; }
+  figure.side img { max-height: 32mm; width: auto; max-width: 100%; margin: 0 auto; }
   /* Each photograph begins below the one before it on its own side, so that
      two never stand shoulder to shoulder and squeeze the text between
      them — which is what happened at the top of a page that a figure was
