@@ -102,7 +102,11 @@ served as they are. Any static host works the same way.
 
 Each room has a random id kept in the fragment of the URL, so the link is the
 room. One browser — the host's — owns the shuffled decks, the seat order, the
-table and the turn, and is the only one that decides anything. The others send
+table and the turn, and is the only one that decides anything. Because the
+game lives in that page, the page writes it down beside the room in its own
+tab store at every change: a tab the browser puts away and brings back, or a
+reload, picks the game up where it was — the same count under the same mark,
+the robots going on with it, and the other players none the wiser. The others send
 moves to it and render the snapshot it publishes back; a move the rules refuse
 comes back to its sender alone with the reason.
 

@@ -105,6 +105,15 @@ function paintEntryWords() {
 function initEntry() {
   const joining = !!room;
 
+  // The host's own tab, put away by the browser and brought back: it holds
+  // the game, so it takes it up again rather than asking who he is.
+  if (joining && recallHost()) {
+    me.name = localStorage.getItem('cg_name') || '';
+    isHost = true;
+    connect();
+    return;
+  }
+
   // A tab that was already in this room walks back into it, which is what a
   // reload in the middle of a game should do.
   if (joining && sessionStorage.getItem('cg_room') === room) {
@@ -135,6 +144,7 @@ function enter() {
   if (!room) {
     room = newRoomId();
     isHost = true;
+    forgetHost();
     history.replaceState(null, '', shareLink());
     updateDocLinks();
   }
@@ -299,12 +309,65 @@ function noBroker() {
     t('alert.noBroker');
 }
 
+// The whole game sits in the host's page, so a tab the browser puts away and
+// brings back must find it again. Everything the host holds is written down
+// beside the room, in the tab's own store, each time the snapshot changes.
+const hostKey = () => `cg_host_${room}`;
+
+function rememberHost() {
+  if (!host) return;
+  try {
+    sessionStorage.setItem(hostKey(), JSON.stringify({
+      epoch: host.epoch,
+      rev: host.rev,
+      locked: host.locked,
+      deal: host.deal,
+      order: host.order,
+      rematches: host.rematches || 0,
+      bots: [...host.bots.entries()],
+      players: [...host.players.values()].map((p) => ({ id: p.id, name: p.name, bot: !!p.bot })),
+      game: host.game,
+    }));
+  } catch { /* a page that may not write simply cannot come back */ }
+}
+
+function recallHost() {
+  if (!room) return null;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(hostKey()) || 'null');
+    return saved && saved.epoch && Array.isArray(saved.order) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function forgetHost() {
+  try { sessionStorage.removeItem(hostKey()); } catch { /* nothing to forget */ }
+}
+
 function connect() {
   setStatus('wait');
   if (!isHost) sessionStorage.setItem('cg_room', room);
 
   if (isHost) {
-    host = {
+    const saved = recallHost();
+    const now = Date.now();
+    host = saved ? {
+      players: new Map(saved.players.map((p) => [p.id, { ...p, last: now }])),
+      order: [...saved.order],
+      locked: saved.locked,
+      turn: 0,
+      deal: { ...saved.deal },
+      game: saved.game,
+      rev: saved.rev,
+      rematches: saved.rematches,
+      // The same host as before, going on with the same count, so that nobody
+      // takes what he says now for something old.
+      epoch: saved.epoch,
+      lastSig: '',
+      done: new Set(),
+      bots: new Map(saved.bots),
+    } : {
       players: new Map([[me.id, { id: me.id, name: me.name || seatName(1), last: Date.now() }]]),
       order: [me.id],
       locked: false,
@@ -332,7 +395,15 @@ function connect() {
       // so the others can tell a quiet host from a host who has gone.
       publishState(++tick % 5 === 0);
     }, 2000);
-    publishState();
+    if (host.game) {
+      // Back from being put away: everybody is told where the game stands,
+      // and the robots take it up again.
+      sendHands();
+      publishState(true);
+      stirBots();
+    } else {
+      publishState();
+    }
   } else {
     bus = playerRelay(brokerList());
     setInterval(() => bus.act({ t: 'hello', id: me.id, name: me.name }), HEARTBEAT_MS);
@@ -485,6 +556,7 @@ function publishState(force) {
   host.lastSig = sig;
   payload.rev = ++host.rev;
   bus.state(payload);
+  rememberHost();
 }
 
 // Each player is told his own cards and nothing else.
