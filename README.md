@@ -63,8 +63,11 @@ their summed atomic number, and that group is fixed the moment it is laid. The
 alkanes card asks how many carbons it stands for.
 
 Finishing a molecule lets every player who contributed to it take back one of
-the atoms he laid, and the one who finished it then either starts a new
-molecule or draws five cards of one kind and keeps one. A fused group is never
+the atoms he laid — his own cards are marked out on the table and a click on
+one takes it; the only button is the one for letting it go — and the one who
+finished it then either starts a new molecule or draws five cards of one kind
+and keeps one. Nobody waits for a turn here: everybody is asked at once, and
+the robots answer side by side with the people. A fused group is never
 taken apart: neither the fusion card nor an atom that went into it.
 
 The move a turn is for is already under way when the turn opens, so a card can
@@ -89,8 +92,10 @@ hardest card to place, so whatever lets one go down is taken first, and the
 molecule in play is traded for another if that is what it takes; a fusion is
 spent only when nothing else fits; a new molecule is opened when an oxygen is
 held and nothing on offer takes it; and glucose, which asks for six oxygens,
-only with three or more of them in hand. `js/bot.js` holds all of it, and it
-sees no more than a player sees.
+only with three or more of them in hand. A card taken back is a card to be rid
+of again, so it leaves what it laid where it lies — unless it is down to its
+last hydrogen, the atom every molecule asks for most, in which case it takes
+one back. `js/bot.js` holds all of it, and it sees no more than a player sees.
 
 ## Deploying
 

@@ -42,11 +42,11 @@ async function clickMove(page, move) {
       await page.click(card('#overlay-cards', move.card));
       break;
     case 'takeBack':
-      // The page may still be a snapshot behind, so the buttons of this phase
-      // are waited for rather than assumed.
-      await page.waitForSelector(action('takeOne'), { timeout: 20000 });
+      // The page may still be a snapshot behind, so the one button of this
+      // phase is waited for rather than assumed. A card is taken back by
+      // clicking it; the button is only for letting it go.
+      await page.waitForSelector(action('takeNothing'), { timeout: 20000 });
       if (move.card) {
-        await page.click(action('takeOne'));
         await page.waitForSelector(`${card('#table-units', move.card)}.pickable`,
           { timeout: 10000 });
         await page.click(card('#table-units', move.card));
@@ -328,7 +328,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('a plain atom was laid by one click, with nothing to confirm', sawOneClickPlace);
   check('the fusion asked for its atoms first', sawFusionPrompt);
   check('an illegal placement was refused on screen', sawRefusal);
-  check('a card was taken back by clicking it', tookBack);
+  check('a card was taken back by clicking it, with no button first', tookBack);
   check('the alkane declaration appears when that card is chosen', sawAlkaneField);
   check('the table showed the shape of the molecule, with the spots still missing', sawShape);
   check('a molecule opened by one click, with no button pressed first', sawOneClickOpen);

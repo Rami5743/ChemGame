@@ -94,7 +94,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         { timeout: 12000 }).catch(() => {});
       continue;
     }
-    const move = botMove(state.game, await readCards(page));
+    const move = botMove(state.game, await readCards(page), whose);
     if (!move) break;
     await send(page, move);
     await host.waitForFunction((r) => window.chemgame.state().rev > r, state.rev,

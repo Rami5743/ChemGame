@@ -674,7 +674,9 @@ function lobbyError(text) {
 // A robot is a seat like any other, except that the host moves for it. It is
 // never waited for and never counted as gone.
 const BOT_PAUSE = [1000, 2000];
-let botTimer = null;
+// One waiting robot, one timer. Taking a card back is asked of everybody at
+// once and not by turns, so the robots answer it side by side.
+const botTimers = new Map();
 
 const botNames = () => (lang() === 'en' ? BOT_NAMES_EN : BOT_NAMES);
 
@@ -708,22 +710,27 @@ function nameBot(id, name) {
 
 // After every turn the host looks at whose move it is, and if it is a robot's
 // he makes it, a second or two later so that it can be watched.
+function waitingOn(g) {
+  return g.phase === 'takeback' ? [...g.takeback.pending] : [g.seats[g.turn]];
+}
+
 function stirBots() {
-  if (!host || !host.game || host.game.winner || botTimer) return;
-  const g = host.game;
-  const who = g.phase === 'takeback' ? g.takeback.pending[0] : g.seats[g.turn];
-  if (!host.bots.has(who)) return;
-  const wait = BOT_PAUSE[0] + Math.random() * (BOT_PAUSE[1] - BOT_PAUSE[0]);
-  botTimer = setTimeout(() => {
-    botTimer = null;
-    playBot(who);
-  }, wait);
+  if (!host || !host.game || host.game.winner) return;
+  for (const who of waitingOn(host.game)) {
+    if (!host.bots.has(who) || botTimers.has(who)) continue;
+    const wait = BOT_PAUSE[0] + Math.random() * (BOT_PAUSE[1] - BOT_PAUSE[0]);
+    botTimers.set(who, setTimeout(() => {
+      botTimers.delete(who);
+      playBot(who);
+    }, wait));
+  }
 }
 
 function playBot(id) {
   if (!host || !host.game || !host.bots.has(id)) return;
   const g = host.game;
-  const move = botMove(publicView(g), privateView(g, id));
+  if (g.winner || !waitingOn(g).includes(id)) return; // its moment has passed
+  const move = botMove(publicView(g), privateView(g, id), id);
   if (!move) return;
   const r = apply(g, id, move);
   if (!r.ok) {
@@ -1127,6 +1134,7 @@ function renderGame() {
   if (!myMove) clearChoice();
   else if (!chosen.mode && g.phase === 'building') chosen.mode = 'place';
   else if (!chosen.mode && g.phase === 'opening') chosen.mode = 'open';
+  else if (!chosen.mode && g.phase === 'takeback') chosen.mode = 'takeOne';
 
   renderBanner(g, inGame, waiting);
   renderSeats(g, waiting);
@@ -1327,6 +1335,9 @@ function unitEl(u, takingBack) {
     return atomCard(c.el, {
       id: c.id,
       pickable: mine,
+      // While one card may be taken back, the ones that may not are stepped
+      // back, so that what is on offer is seen and not guessed at.
+      dim: takingBack && !mine,
       title: mine ? t('game.takeBack') : nameOf(u.by),
       onClick: () => act({ t: 'takeBack', card: c.id }),
     });
@@ -1531,8 +1542,9 @@ function renderActions(g, myMove) {
   }
 
   if (g.phase === 'takeback') {
+    // Taking one back is a click on the card itself, which is marked out on
+    // the table; the only button is the one for letting it go.
     bar.append(
-      button(t('act.takeOne'), 'takeOne', () => setMode('takeOne')),
       button(t('act.takeNothing'), 'takeNothing', () => act({ t: 'takeBack', card: null }))
     );
   }

@@ -18,7 +18,7 @@ function table({ seats = ['bot', 'b'], hands, decks = {} }) {
   return s;
 }
 
-const ask = (s, who = 'bot') => botMove(publicView(s), privateView(s, who));
+const ask = (s, who = 'bot') => botMove(publicView(s), privateView(s, who), who);
 
 export default async function run({ check }) {
   /* ---------- opening ---------- */
@@ -130,12 +130,32 @@ export default async function run({ check }) {
 
   /* ---------- the rest ---------- */
   {
-    const s = table({ hands: { bot: hand([atom('H')], [mol('water')]), b: hand([], []) } });
+    // With hydrogen to spare it leaves what it laid where it lies.
+    const s = table({
+      hands: { bot: hand([atom('H'), atom('H'), atom('H')], [mol('water')]), b: hand([], []) },
+    });
+    const his = atom('H');
+    s.area = { molecule: mol('water'), alkaneN: null, units: [{ by: 'bot', el: 'H', cards: [his] }] };
     s.phase = 'takeback';
     s.takeback = { pending: ['bot'], finisher: 'b' };
-    const move = ask(s);
-    check('it never takes a card back into its hand',
-      move.t === 'takeBack' && move.card === null, JSON.stringify(move));
+    check('as a rule it takes nothing back',
+      ask(s).card === null, JSON.stringify(ask(s)));
+
+    // Down to its last hydrogen, it takes one back.
+    const short = table({ hands: { bot: hand([atom('O')], [mol('water')]), b: hand([], []) } });
+    const laid = atom('H');
+    short.area = {
+      molecule: mol('water'), alkaneN: null,
+      units: [
+        { by: 'b', el: 'H', cards: [atom('H')] },
+        { by: 'bot', el: 'H', cards: [laid] },
+      ],
+    };
+    short.phase = 'takeback';
+    short.takeback = { pending: ['bot'], finisher: 'b' };
+    const move = ask(short);
+    check('but short of hydrogen it takes one of its own back',
+      move.t === 'takeBack' && move.card === laid.id, JSON.stringify(move));
   }
 
   {
@@ -156,7 +176,7 @@ export default async function run({ check }) {
     let stuck = '';
     while (!s.winner && moves < 600) {
       const who = s.phase === 'takeback' ? s.takeback.pending[0] : s.seats[s.turn];
-      const move = botMove(publicView(s), privateView(s, who));
+      const move = botMove(publicView(s), privateView(s, who), who);
       if (!move) { stuck = `no move for ${who} in ${s.phase}`; break; }
       const r = apply(s, who, move);
       if (!r.ok) { stuck = `${JSON.stringify(move)} refused: ${r.error}`; break; }

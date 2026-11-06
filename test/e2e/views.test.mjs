@@ -162,8 +162,10 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
   check('and the one who opened it is asked about his card',
     done.game.takeback.pending.includes(mine));
 
-  // Taking a card back is a move like any other: it is chosen first.
-  await two.click('#actions button[data-act="takeOne"]');
+  // A card is taken back by clicking it, with nothing pressed first.
+  check('the one button of this phase is the one for letting it go',
+    (await two.$$('#actions button')).length === 1 &&
+    (await two.$$('#actions button[data-act="takeNothing"]')).length === 1);
   const top = '#table .el-stack > .unit:last-child .cardbtn.pickable';
   check('his own card is the one lying on top of its pile',
     (await two.$$(top)).length > 0);

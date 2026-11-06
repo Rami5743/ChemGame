@@ -11,6 +11,9 @@
 //   * glucose only with three oxygens or more in hand. It asks for six of
 //     them, which is a fine thing to open with holding plenty and a trap
 //     holding one.
+//   * a card taken back is a card to be rid of again, so it is left where it
+//     lies — unless the bot is down to its last hydrogen, which is the atom
+//     every molecule asks for most, and being without one is being stuck.
 //
 // It knows only what a player knows: the public state and its own hand.
 
@@ -19,6 +22,7 @@ import { formulaOf, isPartOf, unitElement } from './rules.js';
 
 const GOOD = 'O';            // the atom worth playing a turn to be rid of
 const GLUCOSE_WANTS = 3;     // oxygens in hand before glucose is worth opening
+const SHORT_OF_H = 1;        // this many hydrogens left in hand, or fewer, is a shortage
 
 const countOf = (atoms, el) => atoms.filter((c) => c.el === el).length;
 const isAlkane = (mol) => MOLECULES[mol]?.special === 'alkanes';
@@ -107,13 +111,25 @@ function moleculeWorth(card, atoms, here = {}) {
   return best;
 }
 
-// The move the bot makes, or null if it has nothing to do.
-export function botMove(view, hand) {
+// The move the bot makes, or null if it has nothing to do. `me` is its own
+// seat, which it needs to know which cards on the table are its own.
+export function botMove(view, hand, me) {
   const { phase, area } = view;
 
   if (phase === 'picking') return pick(view, hand);
   if (phase === 'takeback') {
-    // A card taken back is a card to be rid of again; it declines.
+    // A card taken back is a card to be rid of again, so as a rule it leaves
+    // it where it lies. Running out of hydrogen is the exception: it is the
+    // atom every molecule asks for most, and a hand without one is a hand
+    // that must keep drawing.
+    if (countOf(hand.atoms, 'H') <= SHORT_OF_H) {
+      const mine = (area.units || []).filter(
+        (u) => u.by === me && u.cards.length === 1 && u.cards[0].el === 'H'
+      );
+      if (mine.length) {
+        return { t: 'takeBack', card: mine[mine.length - 1].cards[0].id };
+      }
+    }
     return { t: 'takeBack', card: null };
   }
 
