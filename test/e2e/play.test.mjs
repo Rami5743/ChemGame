@@ -198,6 +198,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       );
       if (bad) {
         const unitsBefore = (await page.$$('#table-units .unit')).length;
+        check('the way out of the turn is on the bar',
+          (await page.$$(action('draw'))).length +
+          (await page.$$(action('pass'))).length === 1);
         check('while a molecule is being built the cards are live with no button first',
           (await page.$$('#hand-atoms .cardbtn.pickable')).length > 0);
         check('and laying is already the move under way',
@@ -259,6 +262,9 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
           (await page.textContent('#turn-banner')).includes('היתוך'));
         check('and the confirm waits for at least one of them',
           await page.isDisabled(action('confirm')));
+        check('while the way out of the turn stays where it was',
+          (await page.$$(action('draw'))).length +
+          (await page.$$(action('pass'))).length === 1);
         await page.click(action('cancel'));
         sawFusionPrompt = true;
       }
