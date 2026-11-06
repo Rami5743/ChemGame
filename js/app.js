@@ -19,6 +19,8 @@ const $ = (id) => document.getElementById(id);
 const DEFAULT_DEAL = { atoms: 12, molecules: 3 };
 const DECK_SIZE = { atoms: 72, molecules: 36 };
 
+// Long enough for the longest name a robot comes with.
+const NAME_MAX = 24;
 const HEARTBEAT_MS = 4000;
 // Five missed heartbeats, not three: a phone on a slow network goes quiet for
 // a few seconds at a time, and a player counted as gone has his turn taken
@@ -138,7 +140,7 @@ function initEntry() {
 
 function enter() {
   // No name is a fine answer: the host hands out one by join order.
-  me.name = $('name-input').value.trim().slice(0, 16);
+  me.name = $('name-input').value.trim().slice(0, NAME_MAX);
   localStorage.setItem('cg_name', me.name);
 
   if (!room) {
@@ -575,12 +577,12 @@ function onAct(msg) {
     if (p) {
       p.last = Date.now();
       // An empty name must not wipe the one the host handed out.
-      const sent = String(msg.name || '').slice(0, 16);
+      const sent = String(msg.name || '').slice(0, NAME_MAX);
       if (!host.locked && sent) p.name = sent;
     } else if (!host.locked) {
       host.players.set(msg.id, {
         id: msg.id,
-        name: String(msg.name || '').slice(0, 16) || seatName(host.order.length + 1),
+        name: String(msg.name || '').slice(0, NAME_MAX) || seatName(host.order.length + 1),
         last: Date.now(),
       });
       host.order.push(msg.id);
@@ -702,7 +704,7 @@ function dropBot(id) {
 
 function nameBot(id, name) {
   if (!host || host.locked || !host.bots.has(id)) return;
-  const given = String(name || '').slice(0, 16);
+  const given = String(name || '').slice(0, NAME_MAX);
   host.bots.set(id, given);
   host.players.get(id).name = given || botNames()[0];
   publishState();
@@ -1043,7 +1045,7 @@ function renderLobby() {
       who = document.createElement('input');
       who.className = 'who botname';
       who.value = p.name;
-      who.maxLength = 16;
+      who.maxLength = NAME_MAX;
       who.setAttribute('aria-label', t('lobby.botName'));
       who.addEventListener('input', () => nameBot(p.id, who.value));
       who.addEventListener('pointerdown', (e) => e.stopPropagation());

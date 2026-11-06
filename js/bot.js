@@ -218,5 +218,12 @@ function pick(view, hand) {
   return { t: 'pick', card: sorted[0].id };
 }
 
-export const BOT_NAMES = ['דניאל', 'R2-D2', 'C-3PO', 'מרווין', 'הל'];
-export const BOT_NAMES_EN = ['Daniel', 'R2-D2', 'C-3PO', 'Marvin', 'HAL'];
+// The names a robot is given, in order, until they run out.
+export const BOT_NAMES = [
+  'דניאל', 'R2-D2', 'C-3PO', 'מרווין', 'הל',
+  'מולטיוואק', 'ספידי', 'גולם', 'המפלצת של פרנקנשטיין', 'אדוארד',
+];
+export const BOT_NAMES_EN = [
+  'Daniel', 'R2-D2', 'C-3PO', 'Marvin', 'HAL',
+  'Multivac', 'Speedy', 'Golem', "Frankenstein's monster", 'Edward',
+];

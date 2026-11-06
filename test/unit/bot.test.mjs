@@ -1,5 +1,5 @@
 // What the robot does with a hand, and why.
-import { botMove } from '../../js/bot.js';
+import { botMove, BOT_NAMES, BOT_NAMES_EN } from '../../js/bot.js';
 import { newGame, apply, publicView, privateView, formulaOf } from '../../js/rules.js';
 import { FUSION } from '../../js/cards.js';
 
@@ -21,6 +21,16 @@ function table({ seats = ['bot', 'b'], hands, decks = {} }) {
 const ask = (s, who = 'bot') => botMove(publicView(s), privateView(s, who), who);
 
 export default async function run({ check }) {
+  /* ---------- the names they come with ---------- */
+  check('there are ten names to go round',
+    BOT_NAMES.length === 10 && BOT_NAMES_EN.length === 10);
+  check('and they are the same ten in both languages',
+    BOT_NAMES_EN.length === BOT_NAMES.length);
+  check('none of them is longer than a name may be',
+    [...BOT_NAMES, ...BOT_NAMES_EN].every((n) => n.length <= 24),
+    [...BOT_NAMES, ...BOT_NAMES_EN].filter((n) => n.length > 24).join());
+  check('no name is given twice', new Set(BOT_NAMES).size === BOT_NAMES.length);
+
   /* ---------- opening ---------- */
   {
     // Water takes an oxygen; ethane does not.

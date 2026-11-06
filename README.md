@@ -44,7 +44,8 @@ entry screen also links to the printed game at The Game Crafter.
    the lobby; anybody who did not type a name is seated as שחקן 2, שחקן 3 and
    so on, in the order they arrived.
 3. The host may seat robots as well, **הוסף רובוט**, as many as he likes.
-   They come named — דניאל, R2-D2, C-3PO, מרווין, הל — and he can rename any
+   They come named — דניאל, R2-D2, C-3PO, מרווין, הל, מולטיוואק, ספידי, גולם,
+   המפלצת של פרנקנשטיין, אדוארד — and he can rename any
    of them, move them in the order or take them away again. A robot plays on
    the host's page, a second or two to a move, and its name is written in a
    colour of its own wherever it stands.
