@@ -1527,12 +1527,14 @@ function renderActions(g, myMove) {
   if (g.phase === 'building') {
     if (chosen.mode === 'swap' || fusionChosen()) {
       renderModeBar(bar);
-      return;
+    } else {
+      bar.append(
+        button(t('act.place'), 'place', () => render(), true, 'active'),
+        button(t('act.swap'), 'swap', () => setMode('swap'))
+      );
     }
-    bar.append(
-      button(t('act.place'), 'place', () => render(), true, 'active'),
-      button(t('act.swap'), 'swap', () => setMode('swap'))
-    );
+    // The way out of the turn stays on the bar whatever is half-chosen: a
+    // card picked up by mistake must not hide it.
     if (g.atomDeck || g.atomDiscard) {
       bar.append(button(t('act.draw'), 'draw', () => act({ t: 'drawAtom' })));
     } else {
