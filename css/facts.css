@@ -58,8 +58,10 @@ p { margin: 11px 0; text-align: justify; }
 
 figure { margin: 0 0 16px; }
 figure.side { width: 154px; }
-figure.start { float: inline-start; margin-inline-end: 20px; }
-figure.end { float: inline-end; margin-inline-start: 20px; }
+/* A photograph stands below the one before it on its own side, never beside
+   it: two shoulder to shoulder would squeeze the text between them. */
+figure.start { float: inline-start; clear: inline-start; margin-inline-end: 20px; }
+figure.end { float: inline-end; clear: inline-end; margin-inline-start: 20px; }
 figure img { width: 100%; height: auto; display: block; }
 figure img.rounded { border-radius: 14px; }
 figure img.oval { border-radius: 50%; }
@@ -125,8 +127,12 @@ header.band a { color: #fff; }
   figure { margin: 0 0 10px; break-inside: avoid; }
   figure.side { width: auto; max-width: 17%; }
   figure.side img { max-height: 34mm; width: auto; max-width: 100%; margin: 0 auto; }
-  figure.start { margin-inline-end: 12px; }
-  figure.end { margin-inline-start: 12px; }
+  /* Each photograph begins below the one before it on its own side, so that
+     two never stand shoulder to shoulder and squeeze the text between
+     them — which is what happened at the top of a page that a figure was
+     carried on to. */
+  figure.start { margin-inline-end: 12px; clear: inline-start; }
+  figure.end { margin-inline-start: 12px; clear: inline-end; }
   figure.wide { clear: both; width: auto; margin: 12px 0; }
   figure.wide img { max-width: min(460px, 100%); max-height: 46mm; }
   figure.wide figcaption { text-align: justify; }

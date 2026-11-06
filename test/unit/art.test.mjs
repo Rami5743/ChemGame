@@ -140,6 +140,8 @@ export default async function run({ check }) {
     !sheetCss.includes('column-count'));
   check('and its colours run to the edge of the paper',
     /section\.atoms \{[^}]*min-height: \d+vh/.test(sheetCss));
+  check('no two photographs stand shoulder to shoulder',
+    (sheetCss.match(/clear: inline-(start|end)/g) || []).length === 4);
 
   // --- the same in English ------------------------------------------------
   const inEnglish = {
