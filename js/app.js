@@ -1426,6 +1426,35 @@ function sortedMolecules(cards) {
     a.id.localeCompare(b.id));
 }
 
+// Cards of one kind are held as a pile, each lying over most of the one
+// before it, so that a hand of a dozen reads as the few kinds it really is.
+function piles(cards, kindOf) {
+  const out = new Map();
+  for (const card of cards) {
+    const kind = kindOf(card);
+    if (!out.has(kind)) out.set(kind, []);
+    out.get(kind).push(card);
+  }
+  return [...out.values()];
+}
+
+// The pile takes the click, not the single card: all of a pile are the same
+// card, and the ones underneath show too little of themselves to be aimed at.
+function pileEl(cards, kind, live, make, pick) {
+  const box = document.createElement('div');
+  box.className = 'pile-of' + (live ? ' live' : '') + (cards.length > 1 ? ' many' : '');
+  box.dataset.kind = kind;
+  for (const card of cards) box.append(make(card));
+  if (live) box.addEventListener('click', () => pick(cards));
+  return box;
+}
+
+// One more of this kind, or, when every one of them is taken, one fewer.
+function takeFromPile(cards) {
+  const free = cards.find((c) => !chosen.atoms.has(c.id));
+  pickAtom(free || cards[cards.length - 1]);
+}
+
 function renderHand(g, myMove) {
   const step = myMove ? currentStep() : null;
   // The molecules stay live through the whole move, so a choice can be
@@ -1435,34 +1464,31 @@ function renderHand(g, myMove) {
 
   const mols = $('hand-mols');
   mols.textContent = '';
-  for (const c of sortedMolecules(myCards?.molecules || [])) {
-    mols.append(
+  for (const group of piles(sortedMolecules(myCards?.molecules || []), (c) => c.mol)) {
+    mols.append(pileEl(group, group[0].mol, molTurn, (c) =>
       moleculeCard(c.mol, {
         id: c.id,
         pickable: molTurn,
         dim: !!step && !molTurn,
         chosen: chosen.molecule === c.id,
         title: nameIn(MOLECULES[c.mol], lang()),
-        onClick: () => {
-          chosen.molecule = chosen.molecule === c.id ? null : c.id;
-          render();
-        },
-      })
-    );
+      }), (cards) => {
+      const held = cards.find((c) => c.id === chosen.molecule);
+      chosen.molecule = held ? null : cards[0].id;
+      render();
+    }));
   }
 
   const atoms = $('hand-atoms');
   atoms.textContent = '';
-  for (const c of sortedAtoms(myCards?.atoms || [])) {
-    atoms.append(
+  for (const group of piles(sortedAtoms(myCards?.atoms || []), (c) => c.el)) {
+    atoms.append(pileEl(group, group[0].el, atomTurn, (c) =>
       atomCard(c.el, {
         id: c.id,
         pickable: atomTurn,
         dim: !!step && !atomTurn,
         chosen: chosen.atoms.has(c.id),
-        onClick: () => pickAtom(c),
-      })
-    );
+      }), takeFromPile));
   }
 }
 

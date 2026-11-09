@@ -76,9 +76,12 @@ simply be clicked: a molecule when one has to be opened, an atom while one is
 being built. The other moves are on the bar beside it, and a fusion is the one
 thing that waits for a confirmation.
 
-A hand is held in order: the atoms by their kind, the lightest first and the
-fusion card at the end, the molecules by name, so that cards of a kind sit
-together without the player having to arrange them. On a screen wide enough
+A hand is held in order and in piles: the atoms by their kind, the lightest
+first and the fusion card at the end, the molecules by name, and the cards of
+one kind lie over one another with two fifths of each showing, so that a
+dozen cards read as the few kinds they really are. The pile is what answers a
+click — all of a pile are the same card — and clicking it again takes one
+more of that kind, which is how a fusion gathers its atoms. On a screen wide enough
 the molecule in play stands beside its atoms and the decks stand beside the
 table, in the room the shape of the molecule leaves empty, and the cards in
 hand are made a little smaller where the screen is short — which is what

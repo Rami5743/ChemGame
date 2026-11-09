@@ -9,24 +9,29 @@ import { openPlayer, connected } from '../support/player.mjs';
 const SEED = 22;
 
 const card = (scope, id) => `${scope} .cardbtn[data-id="${id}"]`;
+// A hand holds piles: the pile answers the click, since the cards of one kind
+// are the same card and the ones underneath show too little to be aimed at.
+const pile = (scope, kind) => `${scope} .pile-of[data-kind="${kind}"]`;
+const atomKind = (cards, id) => cards.atoms.find((c) => c.id === id)?.el;
+const molKind = (cards, id) => cards.molecules.find((c) => c.id === id)?.mol;
 const action = (name) => `#actions button[data-act="${name}"]`;
 const readState = (page) => page.evaluate(() => window.chemgame.state());
 const readCards = (page) => page.evaluate(() => window.chemgame.cards());
 
-async function clickMove(page, move) {
+async function clickMove(page, move, cards) {
   switch (move.t) {
     case 'startMolecule':
     case 'swapMolecule':
       await page.click(action(move.t === 'startMolecule' ? 'open' : 'swap'));
-      await page.click(card('#hand-mols', move.molecule));
+      await page.click(pile('#hand-mols', molKind(cards, move.molecule)));
       if (move.alkaneN !== undefined) await page.fill('#alkane-n', String(move.alkaneN));
-      for (const id of move.cards) await page.click(card('#hand-atoms', id));
+      for (const id of move.cards) await page.click(pile('#hand-atoms', atomKind(cards, id)));
       if (move.cards.length > 1) await page.click(action('confirm'));
       break;
     case 'placeUnit':
       // A plain atom goes down on the click itself; a fusion gathers a group
       // around the fusion card, which the bot always names first.
-      for (const id of move.cards) await page.click(card('#hand-atoms', id));
+      for (const id of move.cards) await page.click(pile('#hand-atoms', atomKind(cards, id)));
       if (move.cards.length > 1) await page.click(action('confirm'));
       break;
     case 'drawAtom':
@@ -61,7 +66,9 @@ async function clickMove(page, move) {
 
 const giveUp = async (page) => {
   if (await page.isVisible(action('cancel'))) await page.click(action('cancel'));
-  for (const el of await page.$$('.cardbtn.chosen')) await el.click().catch(() => {});
+  for (const el of await page.$$('#table-units .cardbtn.chosen')) {
+    await el.click().catch(() => {});
+  }
 };
 
 export default async function run({ check, browser, baseUrl, consoleErrors }) {
@@ -121,12 +128,13 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
 
     const mine = await readCards(host);
     const m = mine.molecules[0].id;
-    await host.click(card('#hand-mols', m));
+    const kind = pile('#hand-mols', molKind(mine, m));
+    await host.click(kind);
     check('the chosen card is marked', await host.isVisible(`${card('#hand-mols', m)}.chosen`));
-    await host.click(card('#hand-mols', m));
+    await host.click(kind);
     check('clicking it again lets it go', !(await host.isVisible(`${card('#hand-mols', m)}.chosen`)));
 
-    await host.click(card('#hand-mols', m));
+    await host.click(kind);
     check('the screen now asks for an atom',
       (await host.textContent('#turn-banner')).includes('אטום'));
     check('and the atoms are the ones that can be picked up',
@@ -205,7 +213,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
           (await page.$$('#hand-atoms .cardbtn.pickable')).length > 0);
         check('and laying is already the move under way',
           await page.isVisible(`${action('place')}.active`));
-        await page.click(card('#hand-atoms', bad.id));
+        await page.click(pile('#hand-atoms', bad.el));
         await page.waitForSelector('#game-note.error', { timeout: 10000 });
         check('an atom that does not fit is refused, with a reason on screen',
           (await page.textContent('#game-note')).length > 0);
@@ -236,8 +244,8 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         (m) => m.t === 'startMolecule' && m.cards.length === 1 && m.alkaneN === undefined
       );
       if (direct) {
-        await page.click(card('#hand-mols', direct.molecule));
-        await page.click(card('#hand-atoms', direct.cards[0]));
+        await page.click(pile('#hand-mols', molKind(cards, direct.molecule)));
+        await page.click(pile('#hand-atoms', atomKind(cards, direct.cards[0])));
         try {
           await waitRev(state.rev);
           sawOneClickOpen = true;
@@ -257,7 +265,7 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
       // The first fusion of the game: look at what choosing the card does
       // before actually going through with it.
       if (!sawFusionPrompt && m.t === 'placeUnit' && m.cards.length > 1) {
-        await page.click(card('#hand-atoms', m.cards[0]));
+        await page.click(pile('#hand-atoms', atomKind(cards, m.cards[0])));
         check('choosing the fusion card asks for the atoms to fuse with it',
           (await page.textContent('#turn-banner')).includes('היתוך'));
         check('and the confirm waits for at least one of them',
@@ -272,14 +280,14 @@ export default async function run({ check, browser, baseUrl, consoleErrors }) {
         const molId = cards.molecules.find((c) => c.id === m.molecule)?.mol;
         if (MOLECULES[molId]?.special === 'alkanes') {
           await page.click(action(m.t === 'startMolecule' ? 'open' : 'swap'));
-          await page.click(card('#hand-mols', m.molecule));
+          await page.click(pile('#hand-mols', molKind(cards, m.molecule)));
           if (await page.isVisible('#alkane-n')) sawAlkaneField = true;
           await giveUp(page);
         }
       }
       try {
         page.setDefaultTimeout(20000);
-        await clickMove(page, m);
+        await clickMove(page, m, cards);
       } catch (e) {
         lastErr = 'click: ' + String(e.message).split('\n')[0];
         await giveUp(page);

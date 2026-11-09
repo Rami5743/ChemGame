@@ -406,7 +406,17 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .actions .num { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; }
 .actions .num input { width: 64px; }
 
-.hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 10px; margin-bottom: 8px; }
+.hand { display: flex; gap: 16px; flex-wrap: wrap; min-height: 10px; margin-bottom: 8px; }
+/* A hand holds piles, not a row of singles: the cards of one kind lie over
+   one another, two fifths of each one showing, and the hairline round every
+   picture keeps a pile from reading as one wide card. */
+.pile-of { display: flex; }
+.pile-of > .cardbtn + .cardbtn { margin-inline-start: calc(var(--w) * -0.6); }
+/* The pile is what answers a click, so the cards let the pointer through. */
+.pile-of .cardbtn { position: relative; pointer-events: none; }
+.pile-of.live { cursor: pointer; }
+.pile-of .cardbtn.chosen { z-index: 3; }
+.pile-of.live:hover .cardbtn:not(.chosen) { border-color: #6d8ab0; }
 .hand:last-child { margin-bottom: 0; }
 
 /* A screen that is wide but short — a laptop — gets smaller cards in hand,
