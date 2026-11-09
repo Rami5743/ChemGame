@@ -1410,6 +1410,22 @@ function renderDecks(g) {
   );
 }
 
+// A hand is held in order: the atoms by their kind, the lightest first and
+// the fusion card at the end, the molecules by name. Cards of a kind sit
+// together, so a player can see what he holds without sorting them himself.
+const handOrder = (c) =>
+  (c.el === FUSION ? 999 : ELEMENTS[c.el]?.z || 500);
+
+function sortedAtoms(cards) {
+  return [...cards].sort((a, b) => handOrder(a) - handOrder(b) || a.id.localeCompare(b.id));
+}
+
+function sortedMolecules(cards) {
+  const name = (c) => nameIn(MOLECULES[c.mol], lang());
+  return [...cards].sort((a, b) => name(a).localeCompare(name(b), lang()) ||
+    a.id.localeCompare(b.id));
+}
+
 function renderHand(g, myMove) {
   const step = myMove ? currentStep() : null;
   // The molecules stay live through the whole move, so a choice can be
@@ -1419,7 +1435,7 @@ function renderHand(g, myMove) {
 
   const mols = $('hand-mols');
   mols.textContent = '';
-  for (const c of myCards?.molecules || []) {
+  for (const c of sortedMolecules(myCards?.molecules || [])) {
     mols.append(
       moleculeCard(c.mol, {
         id: c.id,
@@ -1437,7 +1453,7 @@ function renderHand(g, myMove) {
 
   const atoms = $('hand-atoms');
   atoms.textContent = '';
-  for (const c of myCards?.atoms || []) {
+  for (const c of sortedAtoms(myCards?.atoms || [])) {
     atoms.append(
       atomCard(c.el, {
         id: c.id,
