@@ -237,7 +237,11 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
   line-height: 24px;
   text-align: center;
 }
-.cardbtn.dim { opacity: 0.32; }
+/* A card that is not wanted at this moment is darkened, not made see-through:
+   in a pile, a transparent card shows the one under it and the two read as
+   one muddled card. */
+.cardbtn.dim { opacity: 1; }
+.cardbtn.dim img { filter: brightness(0.5) saturate(0.6); }
 .cardbtn .badge {
   position: absolute;
   inset-block-start: -8px;
