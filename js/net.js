@@ -14,12 +14,17 @@
 // common with the host. The first in the list listens on 443, which is the
 // port a restrictive network is least likely to close.
 
-// The two at the head listen on 443, the port a network that closes
+// The one at the head listens on 443, the port a network that closes
 // everything else still leaves open; the rest listen on ports of their own,
 // which a strict network is likely to shut. A name and a word may be written
 // into the address, as the one at shiftr.io asks for.
+//
+// mqtt.eclipseprojects.io stood here first and answered on 443 as well. It
+// stopped answering there, and a server that never replies only makes the
+// diagnostic harder to read, so it is gone. Whoever finds another that listens
+// on 443 should put it beside the first: on a network that shuts every other
+// port, the ones on 443 are all the game has.
 export const BROKERS = [
-  'wss://mqtt.eclipseprojects.io/mqtt',
   'wss://public:public@public.cloud.shiftr.io',
   'wss://broker.emqx.io:8084/mqtt',
   'wss://broker.hivemq.com:8884/mqtt',

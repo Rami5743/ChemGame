@@ -11,13 +11,13 @@ import {
   ALKANE_MIN,
   ALKANE_MAX,
   cardArt,
+  deckSizes,
   nameIn,
 } from './cards.js';
 
 const $ = (id) => document.getElementById(id);
 
 const DEFAULT_DEAL = { atoms: 12, molecules: 3 };
-const DECK_SIZE = { atoms: 72, molecules: 36 };
 
 // Long enough for the longest name a robot comes with.
 const NAME_MAX = 24;
@@ -46,6 +46,9 @@ const TAB = Math.random().toString(36).slice(2, 10);
 let noHostTimer = null;
 let noHostShown = false;
 let lastHandSig = '';
+// Set once the host has taken this seat out: the tab stops asking to be let
+// back in, and the only way on is a game of its own.
+let outOfRoom = false;
 
 const seatName = (n) => t('seat.name', { n });
 
@@ -155,6 +158,14 @@ function enter() {
 
 /* ---------- connection ---------- */
 
+// Everything the host publishes is handed to his own page at once, without
+// waiting for a broker to carry it back. His screen is then up before any
+// server has answered, and a game against robots alone needs no network at
+// all. The copy that does come back is dropped by the count it carries.
+function selfHeard(sub, obj) {
+  onMessage(sub, JSON.parse(JSON.stringify(obj)));
+}
+
 // Host and player alike hold a connection to every broker they can reach and
 // repeat everything on all of them, so the two need only one broker in common,
 // not the same one. A move that reaches the host twice is counted once, by the
@@ -168,33 +179,37 @@ function hostFanout(urls) {
     }
   };
   for (const url of urls) {
-    live.push(createBus({
-      url,
-      room,
-      clientId: me.id,
-      isHost: true,
-      onMessage,
-      onStatus: (state) => {
-        noteLink(url, state);
-        if (state === 'on') {
-          if (!up.has(url)) {
-            up.add(url);
-            // A broker that joins late has none of the retained messages yet.
-            setTimeout(() => { sendHands(); publishState(true); }, 0);
-          }
-        } else {
-          up.delete(url);
+    const onStatus = (state) => {
+      noteLink(url, state);
+      if (state === 'on') {
+        if (!up.has(url)) {
+          up.add(url);
+          // A broker that joins late has none of the retained messages yet.
+          setTimeout(() => { sendHands(); publishState(true); }, 0);
         }
-        setStatus(up.size ? 'on' : 'wait');
-        $('status').title = up.size ? [...up].map(shownAs).join('\n') : t('links.none');
-      },
-    }));
+      } else {
+        up.delete(url);
+      }
+      setStatus(up.size ? 'on' : 'wait');
+      $('status').title = up.size ? [...up].map(shownAs).join('\n') : t('links.none');
+    };
+    // The client library itself comes from elsewhere. If it never arrived,
+    // every address fails here, and that is a game with no network rather
+    // than a page that does not open.
+    try {
+      live.push(createBus({ url, room, clientId: me.id, isHost: true, onMessage, onStatus }));
+    } catch {
+      noteLink(url, 'err');
+    }
   }
   setTimeout(() => { if (!up.size) noBroker(); }, 22000);
   return {
     act: (o) => each((b) => b.act(o)),
-    state: (o) => each((b) => b.state(o)),
-    toPlayer: (id, o, r) => each((b) => b.toPlayer(id, o, r)),
+    state: (o) => { selfHeard('state', o); each((b) => b.state(o)); },
+    toPlayer: (id, o, r) => {
+      if (id === me.id) selfHeard(`p/${id}`, o);
+      each((b) => b.toPlayer(id, o, r));
+    },
     clearPlayer: (id) => each((b) => b.clearPlayer(id)),
     clearState: () => each((b) => b.clearState()),
     stop: () => each((b) => b.stop()),
@@ -223,30 +238,32 @@ function playerRelay(urls) {
       if (!answered) noteLink(url, 'dead');
     }, PATIENCE_MS);
 
-    const b = createBus({
-      url,
-      room,
-      clientId: me.id,
-      isHost: false,
-      onMessage,
-      onStatus: (state) => {
-        if (state === 'on') answered = true;
-        noteLink(url, !answered && !patience ? 'dead' : state);
-        const had = live.size;
-        if (state === 'on') live.add(b);
-        else live.delete(b);
-        setStatus(live.size ? 'on' : state === 'err' ? 'err' : 'wait');
-        $('status').title = live.size
-          ? [...live].map((x) => shownAs(x.url)).join('\n')
-          : t('links.none');
-        if (state === 'on') {
-          b.act({ t: 'hello', id: me.id, name: me.name });
-          // Back in touch: whatever was said about being cut off is over,
-          // unless the list of brokers is what is on the screen.
-          if (!had && !linksOpen) $('alert').classList.add('hidden');
-        }
-      },
-    });
+    let b;
+    const onStatus = (state) => {
+      if (state === 'on') answered = true;
+      noteLink(url, !answered && !patience ? 'dead' : state);
+      const had = live.size;
+      if (state === 'on') live.add(b);
+      else live.delete(b);
+      setStatus(live.size ? 'on' : state === 'err' ? 'err' : 'wait');
+      $('status').title = live.size
+        ? [...live].map((x) => shownAs(x.url)).join('\n')
+        : t('links.none');
+      if (state === 'on') {
+        b.act({ t: 'hello', id: me.id, name: me.name });
+        // Back in touch: whatever was said about being cut off is over,
+        // unless the list of brokers is what is on the screen.
+        if (!had && !linksOpen) $('alert').classList.add('hidden');
+      }
+    };
+    // As with the host: an address that cannot even be opened is one address
+    // down, not a page that fails to come up.
+    try {
+      b = createBus({ url, room, clientId: me.id, isHost: false, onMessage, onStatus });
+    } catch {
+      noteLink(url, 'err');
+      continue;
+    }
     buses.push(b);
   }
 
@@ -306,9 +323,20 @@ function toggleLinks() {
 
 function noBroker() {
   setStatus('err');
-  $('alert').classList.remove('hidden');
-  $('alert').textContent =
-    t('alert.noBroker');
+  if (!linksOpen) {
+    $('alert').classList.remove('hidden');
+    // The host is not stuck: his page holds the whole game, so a table of
+    // robots is still a game. A guest has nobody to play with until he opens
+    // a game of his own, and is told so.
+    $('alert').textContent = t(isHost ? 'alert.noBrokerHost' : 'alert.noBroker');
+  }
+  if (!isHost) offerFresh(true);
+}
+
+// The one way on from a room this tab cannot reach: a game of its own, in
+// this same page, with robots for company.
+function offerFresh(on) {
+  $('lobby-fresh').classList.toggle('hidden', !on);
 }
 
 // The whole game sits in the host's page, so a tab the browser puts away and
@@ -324,8 +352,12 @@ function rememberHost() {
       rev: host.rev,
       locked: host.locked,
       deal: host.deal,
+      specials: host.specials,
       order: host.order,
       rematches: host.rematches || 0,
+      wins: host.wins,
+      scored: host.scored,
+      removed: [...host.removed],
       bots: [...host.bots.entries()],
       players: [...host.players.values()].map((p) => ({ id: p.id, name: p.name, bot: !!p.bot })),
       game: host.game,
@@ -360,9 +392,13 @@ function connect() {
       locked: saved.locked,
       turn: 0,
       deal: { ...saved.deal },
+      specials: saved.specials !== false,
       game: saved.game,
       rev: saved.rev,
       rematches: saved.rematches,
+      wins: { ...(saved.wins || {}) },
+      scored: !!saved.scored,
+      removed: new Set(saved.removed || []),
       // The same host as before, going on with the same count, so that nobody
       // takes what he says now for something old.
       epoch: saved.epoch,
@@ -375,8 +411,17 @@ function connect() {
       locked: false,
       turn: 0,
       deal: { ...DEFAULT_DEAL },
+      // The special cards are in the game unless the host says otherwise.
+      specials: true,
       game: null,
       rev: 0,
+      // How many games each seat has won since this room opened, and whether
+      // the game now on the screen has already been counted.
+      wins: {},
+      scored: false,
+      // Seats the host took out. Their pages go on saying hello, and this is
+      // what keeps them from walking back in.
+      removed: new Set(),
       // This host, told apart from any other that may hold the same room, so
       // that a game begun again is not taken for an old snapshot.
       epoch: Date.now(),
@@ -408,9 +453,11 @@ function connect() {
     }
   } else {
     bus = playerRelay(brokerList());
-    setInterval(() => bus.act({ t: 'hello', id: me.id, name: me.name }), HEARTBEAT_MS);
     setInterval(() => {
-      if (linksOpen) return;
+      if (!outOfRoom) bus.act({ t: 'hello', id: me.id, name: me.name });
+    }, HEARTBEAT_MS);
+    setInterval(() => {
+      if (linksOpen || outOfRoom) return;
       const stale = lastStateAt && Date.now() - lastStateAt > STALE_MS;
       $('alert').classList.toggle('hidden', !stale);
       if (stale) {
@@ -421,6 +468,7 @@ function connect() {
       if (!snapshot) {
         noHostShown = true;
         lobbyError(t('lobby.noHost'));
+        offerFresh(true);
       }
     }, NO_HOST_MS);
     window.addEventListener('pagehide', () => bus.act({ t: 'bye', id: me.id }));
@@ -434,21 +482,23 @@ function connect() {
   });
 
   $('share').value = shareLink();
+  $('lobby-fresh').addEventListener('click', () => {
+    location.href = `${location.origin}${location.pathname}${location.search}`;
+  });
   $('copy').addEventListener('click', copyLink);
   $('start').addEventListener('click', startGame);
   $('add-bot').addEventListener('click', addBot);
-  for (const id of ['set-atoms', 'set-mols']) {
-    $(id).addEventListener('input', () => {
-      if (!host || host.locked) return;
-      // A deal that was refused is no longer the deal on the screen.
-      $('lobby-note').classList.remove('error');
-      const { deal } = readDeal(host.order.length);
-      if (deal) {
-        host.deal = deal;
-        publishState();
-      }
-    });
-  }
+  const readSettings = () => {
+    if (!host || host.locked) return;
+    // A deal that was refused is no longer the deal on the screen.
+    $('lobby-note').classList.remove('error');
+    host.specials = !$('set-nospecials').checked;
+    const { deal } = readDeal(host.order.length, 'set-atoms', 'set-mols', host.specials);
+    if (deal) host.deal = deal;
+    publishState();
+  };
+  for (const id of ['set-atoms', 'set-mols']) $(id).addEventListener('input', readSettings);
+  $('set-nospecials').addEventListener('change', readSettings);
   $('host-controls').classList.toggle('hidden', !isHost);
 
   show('lobby');
@@ -469,6 +519,9 @@ function copyLink() {
 }
 
 function onMessage(sub, msg) {
+  // A tab the host has taken out of the room hears nothing more from it: the
+  // room would otherwise paint itself back over the word that it is out.
+  if (outOfRoom) return;
   if (sub === 'state') {
     lastStateAt = Date.now();
     if (noHostTimer) {
@@ -481,6 +534,7 @@ function onMessage(sub, msg) {
     if (noHostShown) {
       noHostShown = false;
       $('lobby-note').classList.remove('error');
+      offerFresh(false);
       repaint = true;
     }
     // Every broker the two share carries the same snapshot. A copy that is
@@ -489,6 +543,13 @@ function onMessage(sub, msg) {
     if (snapshot && msg.epoch === snapshot.epoch && msg.rev <= snapshot.rev) {
       if (repaint) render();
       return;
+    }
+    // Between games there is no hand to hold, and the choice made in the
+    // game that ended is not a choice in the one that follows.
+    if (msg.phase === 'lobby' && (myCards || lastHandSig)) {
+      myCards = null;
+      lastHandSig = '';
+      clearChoice();
     }
     snapshot = msg;
     for (const [seq, resolve] of awaitingMove) {
@@ -503,6 +564,14 @@ function onMessage(sub, msg) {
       lastHandSig = sig;
       myCards = msg;
       render();
+    } else if (msg.t === 'dropped') {
+      outOfRoom = true;
+      snapshot = null;
+      myCards = null;
+      show('lobby');
+      $('roster').textContent = '';
+      lobbyError(t('lobby.dropped'));
+      offerFresh(true);
     } else if (msg.t === 'rejected') {
       const said = refusal(msg);
       const resolve = awaitingMove.get(msg.seq);
@@ -523,12 +592,21 @@ function buildState() {
   const now = Date.now();
   const row = (id) => {
     const p = host.players.get(id);
-    return { id, name: p.name, online: p.bot || now - p.last < OFFLINE_MS, bot: !!p.bot };
+    return {
+      id,
+      name: p.name,
+      online: p.bot || now - p.last < OFFLINE_MS,
+      bot: !!p.bot,
+      wins: host.wins[id] || 0,
+    };
   };
   if (!host.locked) {
     return {
       phase: 'lobby', host: me.id, epoch: host.epoch,
-      order: host.order.map(row), deal: host.deal,
+      order: host.order.map(row), deal: host.deal, specials: host.specials,
+      // A room that has already seen a game says so, so that a player who
+      // walks in between games is not told the game is about to be his first.
+      games: host.rematches || 0,
     };
   }
   // Everything the rules make public travels, minus what the seats already
@@ -540,6 +618,8 @@ function buildState() {
     host: me.id,
     epoch: host.epoch,
     deal: host.deal,
+    specials: host.specials,
+    games: host.rematches || 0,
     order: host.order.map((id) => ({
       ...row(id),
       atoms: counts[id].atoms,
@@ -550,8 +630,19 @@ function buildState() {
   };
 }
 
+// A game has one winner and he is counted once. The tally belongs to the
+// room rather than to the game, so it outlives every deal.
+function noteWin() {
+  if (!host || !host.game || host.scored) return;
+  const who = host.game.winner;
+  if (!who) return;
+  host.scored = true;
+  host.wins[who] = (host.wins[who] || 0) + 1;
+}
+
 function publishState(force) {
   if (!host) return;
+  noteWin();
   const payload = buildState();
   const sig = JSON.stringify(payload);
   if (!force && sig === host.lastSig) return;
@@ -573,6 +664,12 @@ function onAct(msg) {
   if (!msg || !msg.id) return;
 
   if (msg.t === 'hello') {
+    if (host.removed.has(msg.id)) {
+      // He hears it on his own line and nowhere else, so the room is not
+      // told about somebody who is no longer in it.
+      bus.toPlayer(msg.id, { t: 'dropped' }, false);
+      return;
+    }
     const p = host.players.get(msg.id);
     if (p) {
       p.last = Date.now();
@@ -635,8 +732,10 @@ function moveSeat(id, delta) {
   publishState();
 }
 
-// Reads a pair of inputs, or explains what is wrong with them.
-function readDeal(seats, atomsEl = 'set-atoms', molsEl = 'set-mols') {
+// Reads a pair of inputs, or explains what is wrong with them. A deck left
+// without its special cards is a few cards smaller, so what may be dealt out
+// of it is asked of the deck the game will actually use.
+function readDeal(seats, atomsEl = 'set-atoms', molsEl = 'set-mols', specials = true) {
   const whole = (el, fallback) => {
     const n = Number(el.value);
     return Number.isInteger(n) && n > 0 ? n : fallback;
@@ -645,13 +744,14 @@ function readDeal(seats, atomsEl = 'set-atoms', molsEl = 'set-mols') {
     atoms: whole($(atomsEl), DEFAULT_DEAL.atoms),
     molecules: whole($(molsEl), DEFAULT_DEAL.molecules),
   };
+  const size = deckSizes(specials);
   for (const kind of ['atoms', 'molecules']) {
-    if (deal[kind] * seats > DECK_SIZE[kind]) {
+    if (deal[kind] * seats > size[kind]) {
       return {
         error:
           kind === 'atoms'
-            ? t('lobby.tooManyAtoms', { deck: DECK_SIZE.atoms, max: Math.floor(DECK_SIZE.atoms / seats) })
-            : t('lobby.tooManyMols', { deck: DECK_SIZE.molecules, max: Math.floor(DECK_SIZE.molecules / seats) }),
+            ? t('lobby.tooManyAtoms', { deck: size.atoms, max: Math.floor(size.atoms / seats) })
+            : t('lobby.tooManyMols', { deck: size.molecules, max: Math.floor(size.molecules / seats) }),
       };
     }
   }
@@ -694,11 +794,21 @@ function addBot() {
   publishState();
 }
 
-function dropBot(id) {
-  if (!host || host.locked || !host.bots.has(id)) return;
-  host.bots.delete(id);
+// Any seat but the host's own may be taken out while the room is open: his
+// page is the room, so it cannot leave it. A person who is taken out is told
+// so on his own line and is not let back in by the hello he keeps sending.
+function dropSeat(id) {
+  if (!host || host.locked || id === me.id || !host.players.has(id)) return;
+  if (host.bots.has(id)) {
+    host.bots.delete(id);
+  } else {
+    host.removed.add(id);
+    bus.toPlayer(id, { t: 'dropped' }, false);
+  }
+  bus.clearPlayer(id);
   host.players.delete(id);
   host.order = host.order.filter((x) => x !== id);
+  delete host.wins[id];
   publishState();
 }
 
@@ -744,23 +854,52 @@ function playBot(id) {
   stirBots();
 }
 
+// Every deal goes through here, the first of a room and every one after it,
+// so that one room plays one kind of game however many times it is dealt.
+function dealGame(deal) {
+  host.deal = deal;
+  host.locked = true;
+  host.game = newGame({
+    seats: [...host.order],
+    deal,
+    specials: host.specials,
+    seed: (gameSeed() + (host.rematches || 0)) >>> 0,
+  });
+  host.rematches = (host.rematches || 0) + 1;
+  host.scored = false;
+  clearChoice();
+  sendHands();
+  publishState(true);
+  stirBots();
+}
+
 function startGame() {
   if (!host || host.locked) return;
   if (host.order.length < 2) {
     lobbyError(t('lobby.needTwo'));
     return;
   }
-  const { deal, error } = readDeal(host.order.length);
+  const { deal, error } = readDeal(host.order.length, 'set-atoms', 'set-mols', host.specials);
   if (error) {
     lobbyError(error);
     return;
   }
-  host.deal = deal;
-  host.locked = true;
-  host.game = newGame({ seats: [...host.order], deal, seed: gameSeed() });
-  sendHands();
+  dealGame(deal);
+}
+
+// A game that is over gives the room back: seats may be added, taken out or
+// put in another order, whoever holds the link may walk in, and the next deal
+// may be a different game from the one just played.
+function reopenRoom() {
+  if (!host || !host.locked) return;
+  host.locked = false;
+  host.game = null;
+  for (const id of host.order) bus.clearPlayer(id);
+  myCards = null;
+  lastHandSig = '';
+  clearChoice();
+  $('lobby-note').classList.remove('error');
   publishState(true);
-  stirBots();
 }
 
 // A player who has dropped off must not hold the whole table up at the one
@@ -780,21 +919,14 @@ function answerForTheAbsent() {
 // The same players, dealt again, with sizes the host may change first.
 function startAgain() {
   if (!host || !host.game) return;
-  const { deal, error } = readDeal(host.order.length, 'again-atoms', 'again-mols');
+  const box = $('again-nospecials');
+  if (box) host.specials = !box.checked;
+  const { deal, error } = readDeal(host.order.length, 'again-atoms', 'again-mols', host.specials);
   if (error) {
     showReject(error);
     return;
   }
-  host.deal = deal;
-  host.rematches = (host.rematches || 0) + 1;
-  host.game = newGame({
-    seats: [...host.order],
-    deal,
-    seed: (gameSeed() + host.rematches) >>> 0,
-  });
-  sendHands();
-  publishState(true);
-  stirBots();
+  dealGame(deal);
 }
 
 // Sends a move and resolves with null when it went through, or with the
@@ -961,6 +1093,14 @@ function render() {
   // A row in the host's hand holds the seat list still, and nothing else: a
   // drag that was never let go of must not freeze the game screen with it.
   if (dragging && snapshot.phase === 'lobby') return;
+  // The same for a name being typed into the list. The host hears his own
+  // every change at once, so without this the field would be built anew — and
+  // the cursor lost — at the first letter of a robot's name. A button that was
+  // pressed also holds the focus, and that one must not stop the list: it is
+  // the very press that asked for the list to change.
+  const typing = document.activeElement;
+  if (snapshot.phase === 'lobby' && typing && typing.tagName === 'INPUT' &&
+      $('roster').contains(typing)) return;
   if (snapshot.phase === 'lobby') {
     show('lobby');
     renderLobby();
@@ -1100,13 +1240,14 @@ function renderLobby() {
 
       li.append(up, down);
 
-      if (p.bot) {
+      if (p.id !== me.id) {
         const away = document.createElement('button');
         away.className = 'move drop';
         away.type = 'button';
         away.textContent = '\u2715';
-        away.title = t('lobby.dropBot');
-        away.addEventListener('click', () => dropBot(p.id));
+        away.title = t(p.bot ? 'lobby.dropBot' : 'lobby.dropPlayer');
+        away.setAttribute('aria-label', away.title);
+        away.addEventListener('click', () => dropSeat(p.id));
         li.append(away);
       }
     }
@@ -1115,8 +1256,25 @@ function renderLobby() {
   });
 
   $('start').disabled = snapshot.order.length < 2;
+  const noSpecials = snapshot.specials === false;
+  if (isHost && $('set-nospecials').checked !== noSpecials) {
+    $('set-nospecials').checked = noSpecials;
+  }
   const d = snapshot.deal || DEFAULT_DEAL;
-  $('deal-note').textContent = t('lobby.deal', { atoms: d.atoms, molecules: d.molecules });
+  // The two fields follow the deal the room is holding — which the host may
+  // last have changed on the bar of a game that ended — unless he is typing
+  // in them at this moment, when they are his.
+  if (isHost) {
+    for (const [id, value] of [['set-atoms', d.atoms], ['set-mols', d.molecules]]) {
+      const field = $(id);
+      if (field !== document.activeElement && Number(field.value) !== value) {
+        field.value = String(value);
+      }
+    }
+  }
+  $('deal-note').textContent = t('lobby.deal', { atoms: d.atoms, molecules: d.molecules }) +
+    (snapshot.specials === false ? ' ' + t('lobby.withoutSpecials') : '');
+  $('start').textContent = t(snapshot.games ? 'lobby.startNext' : 'lobby.start');
   if (!$('lobby-note').classList.contains('error')) {
     $('lobby-note').textContent = isHost
       ? t('lobby.hostWaiting')
@@ -1139,6 +1297,7 @@ function renderGame() {
   else if (!chosen.mode && g.phase === 'takeback') chosen.mode = 'takeOne';
 
   renderBanner(g, inGame, waiting);
+  renderScore(g);
   renderSeats(g, waiting);
   renderTable(g, myMove);
   renderDecks(g);
@@ -1162,6 +1321,40 @@ function renderBanner(g, inGame, waiting) {
   } else {
     banner.textContent = t('game.waitingFor', { name: nameOf(waiting[0]) });
   }
+}
+
+// How many games each seat has won since the room opened. It is worth seeing
+// only once a game is over, so that is when it is on the screen.
+function renderScore(g) {
+  const box = $('score');
+  box.classList.toggle('hidden', !g.winner);
+  if (!g.winner) return;
+  box.textContent = '';
+
+  const title = document.createElement('div');
+  title.className = 'score-title';
+  title.textContent = t('score.title');
+  box.append(title);
+
+  const list = document.createElement('ol');
+  list.className = 'score-list';
+  const byWins = [...snapshot.order].sort((a, b) => (b.wins || 0) - (a.wins || 0));
+  for (const p of byWins) {
+    const li = document.createElement('li');
+    if (p.id === g.winner) li.classList.add('won');
+
+    const who = document.createElement('span');
+    who.className = 'who' + (p.bot ? ' bot' : '');
+    who.textContent = p.name + (p.id === me.id ? ` (${t('seat.you')})` : '');
+
+    const n = document.createElement('span');
+    n.className = 'count';
+    n.textContent = String(p.wins || 0);
+
+    li.append(who, n);
+    list.append(li);
+  }
+  box.append(list);
 }
 
 function renderSeats(g, waiting) {
@@ -1534,6 +1727,19 @@ function pickAtom(c) {
   render();
 }
 
+function checkField(id, label, checked) {
+  const field = document.createElement('label');
+  field.className = 'check';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.id = id;
+  input.checked = !!checked;
+  const words = document.createElement('span');
+  words.textContent = label;
+  field.append(input, words);
+  return field;
+}
+
 function renderActions(g, myMove) {
   const bar = $('actions');
 
@@ -1544,7 +1750,11 @@ function renderActions(g, myMove) {
     bar.append(
       numberField('again-atoms', t('lobby.atomsPer'), snapshot.deal.atoms, 24),
       numberField('again-mols', t('lobby.molsPer'), snapshot.deal.molecules, 8),
-      button(t('act.again'), 'again', startAgain)
+      checkField('again-nospecials', t('lobby.noSpecials'), snapshot.specials === false),
+      button(t('act.again'), 'again', startAgain),
+      // The same players again is one button; anything else — a robot more,
+      // a player fewer, somebody new — is done back in the waiting room.
+      button(t('act.room'), 'room', reopenRoom)
     );
     return;
   }

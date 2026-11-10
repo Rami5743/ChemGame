@@ -2,10 +2,11 @@
 import { BROKERS, credentials, shownAs } from '../../js/net.js';
 
 export default async function run({ check }) {
-  check('the list starts with the two that listen on 443',
-    BROKERS.slice(0, 2).every((u) => !/:\d+\//.test(u.replace('wss://', ''))),
-    BROKERS.slice(0, 2).join(' '));
-  check('and holds a few more on ports of their own', BROKERS.length >= 4);
+  check('the list starts with one that listens on 443',
+    !/:\d+\//.test(BROKERS[0].replace('wss://', '')), BROKERS[0]);
+  check('and holds a few more on ports of their own', BROKERS.length >= 3);
+  check('none of them is the server that stopped answering',
+    !BROKERS.some((u) => u.includes('eclipseprojects')), BROKERS.join(' '));
 
   const plain = credentials('wss://mqtt.eclipseprojects.io/mqtt');
   check('an address with nobody named is left as it is',

@@ -8,6 +8,8 @@ import {
   Z_TO_ELEMENT,
   MOLECULES,
   MOLECULE_COUNTS,
+  isSpecialAtom,
+  isSpecialMolecule,
   alkaneFormula,
   ALKANE_MIN,
   ALKANE_MAX,
@@ -36,20 +38,29 @@ export function shuffle(arr, rng) {
 
 /* ---------- decks ---------- */
 
-export function buildAtomDeck() {
+// A deck left without its special cards is the printed one minus those cards,
+// and nothing else: every other card keeps the number it always had, so a
+// game is the same game whichever way it is dealt.
+export function buildAtomDeck(specials = true) {
   const deck = [];
   let n = 0;
   for (const [el, count] of Object.entries(ATOM_COUNTS)) {
-    for (let i = 0; i < count; i++) deck.push({ id: `a${++n}`, el });
+    for (let i = 0; i < count; i++) {
+      n++;
+      if (specials || !isSpecialAtom(el)) deck.push({ id: `a${n}`, el });
+    }
   }
   return deck;
 }
 
-export function buildMoleculeDeck() {
+export function buildMoleculeDeck(specials = true) {
   const deck = [];
   let n = 0;
   for (const [mol, count] of Object.entries(MOLECULE_COUNTS)) {
-    for (let i = 0; i < count; i++) deck.push({ id: `m${++n}`, mol });
+    for (let i = 0; i < count; i++) {
+      n++;
+      if (specials || !isSpecialMolecule(mol)) deck.push({ id: `m${n}`, mol });
+    }
   }
   return deck;
 }
@@ -106,10 +117,10 @@ export function isComplete(comp, formula) {
 
 /* ---------- the game ---------- */
 
-export function newGame({ seats, deal = { atoms: 12, molecules: 3 }, seed = 1 }) {
+export function newGame({ seats, deal = { atoms: 12, molecules: 3 }, seed = 1, specials = true }) {
   const rng = makeRng(seed);
-  const atomDeck = shuffle(buildAtomDeck(), rng);
-  const molDeck = shuffle(buildMoleculeDeck(), rng);
+  const atomDeck = shuffle(buildAtomDeck(specials), rng);
+  const molDeck = shuffle(buildMoleculeDeck(specials), rng);
   const hands = {};
   for (const id of seats) {
     hands[id] = {
@@ -120,6 +131,7 @@ export function newGame({ seats, deal = { atoms: 12, molecules: 3 }, seed = 1 })
   return {
     seats: [...seats],
     deal: { ...deal },
+    specials: !!specials,
     hands,
     atomDeck,
     atomDiscard: [],
@@ -429,6 +441,7 @@ export function publicView(state) {
     molDeck: state.molDeck.length,
     molDiscard: state.molDiscard.length,
     molDiscardTop: topOf(state.molDiscard)?.mol ?? null,
+    specials: state.specials !== false,
     winner: state.winner,
   };
 }

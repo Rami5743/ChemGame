@@ -75,6 +75,10 @@
           <label for="set-mols" data-t="lobby.molsPer">קלפי מולקולה לכל שחקן</label>
           <input id="set-mols" type="number" min="1" max="8" value="3">
         </div>
+        <label class="check">
+          <input id="set-nospecials" type="checkbox">
+          <span data-t="lobby.noSpecials">בלי הקלפים המיוחדים</span>
+        </label>
       </div>
       <button id="add-bot" data-t="lobby.addBot">הוסף רובוט</button>
       <button id="start" class="primary" data-t="lobby.start">התחל משחק</button>
@@ -83,6 +87,7 @@
 
     <p id="deal-note" class="note"></p>
     <p id="lobby-note" class="note"></p>
+    <p><button id="lobby-fresh" class="hidden" data-t="lobby.playRobots">פתח משחק משלך ושחק מול רובוטים</button></p>
   </section>
 
   <section id="view-game" class="view hidden">
@@ -95,6 +100,7 @@
 
       <div class="main">
         <div id="turn-banner" class="banner"></div>
+        <div id="score" class="score hidden"></div>
 
         <div class="area-head">
           <h3 data-t="game.area">אזור המשחק</h3>

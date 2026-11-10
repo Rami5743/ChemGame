@@ -50,10 +50,20 @@ entry screen also links to the printed game at The Game Crafter.
    the host's page, a second or two to a move, and its name is written in a
    colour of its own wherever it stands.
 4. The host orders the seats — dragging one by its handle to where it should
-   go, or stepping it with the ▲▼ buttons — sets how many atom and molecule
-   cards each player gets (12 and 3 by default) and presses **התחל משחק**.
-   The room then locks.
-5. Get rid of all your atom cards to win.
+   go, or stepping it with the ▲▼ buttons — and may take any seat but his own
+   out of the room with the ✕ beside it, a robot's or a person's. A person who
+   is taken out is told so, and the hello his page keeps sending no longer
+   seats him again.
+5. The host sets how many atom and molecule cards each player gets (12 and 3
+   by default), may tick **בלי הקלפים המיוחדים** to leave the nuclear fusion
+   card and the alkanes card out of this game, and presses **התחל משחק**. The
+   room then locks.
+6. Get rid of all your atom cards to win.
+
+Nothing of this needs other people. A host with no broker in reach still has
+his whole game — it is his own page — so he can seat robots and play them.
+The page says as much instead of leaving him waiting, and a player who cannot
+find the host he was invited to is offered a game of his own in its place.
 
 On your turn you put one atom on the table so that what is on the table is
 still part of the molecule in play, or you discard that molecule and lay one of
@@ -96,8 +106,13 @@ room for the diagram and glucose has too many atoms for it on any screen, so
 those open on the piles; everything else opens on the shape. A choice of the
 player's own holds for as long as that molecule is on the table.
 
-When a game is won, the host can deal again to the same players, changing the
-two sizes first.
+When a game is won, every player sees how many games each seat has won since
+the room opened, and the host is given two ways on: **משחק חדש, אותם שחקנים**
+deals again to the same table, with the two sizes and the special cards open to
+change first, and **חזרה לחדר ההמתנה** gives the room back — seats may then be
+added, taken out or reordered, somebody new may walk in with the link, and the
+next game may be a different game from the one just played. The tally runs
+across all of them and is kept for as long as the room is open.
 
 A robot wants what a player wants, and goes about it simply: an oxygen is the
 hardest card to place, so whatever lets one go down is taken first, and the
@@ -140,6 +155,12 @@ A player subscribes to `p/<its own id>` and to no other, which is how a hand
 stays out of the other players' pages. The host resends its snapshot every ten
 seconds whether or not it changed, so the others can tell a quiet host from one
 who has closed the page.
+
+The host hands everything he publishes to his own page as well, at once,
+instead of waiting for a broker to carry it back to him. His room is therefore
+on the screen before any server has answered, and a table of robots is a whole
+game with no network at all. The copy that does come back over a broker is
+dropped by the revision it carries, like any other second copy.
 
 Everybody, host and player alike, holds a connection to every broker it can
 reach and repeats everything on all of them, so the two need only one broker in
@@ -218,12 +239,13 @@ shuffle of its own.
 
 **A network that blocks the game.** The network of an institution or a
 workplace commonly closes every outbound port but 443, the one ordinary
-browsing uses. Two of the brokers in the list listen on 443 for that reason;
-the rest listen on 8084, 8884 and 8081, which such a network shuts. Tapping the
-chip at the top of the page lists every broker and whether it answered, which
-says at once whether this is what happened. The way out is `?broker=` with a
-broker of one's own on 443 — the link carries it to the other players, since
-the share link keeps the whole query string.
+browsing uses. Only the first broker in the list listens on 443; the rest
+listen on 8084, 8884 and 8081, which such a network shuts. Tapping the chip at
+the top of the page lists every broker and whether it answered, which says at
+once whether this is what happened. The way out is `?broker=` with a broker of
+one's own on 443 — the link carries it to the other players, since the share
+link keeps the whole query string. Failing that, a game against robots needs
+no broker at all, and the page offers one.
 
 ## Limitations
 
@@ -231,6 +253,8 @@ the share link keeps the whole query string.
   the others are told so and keep the last screen they saw.
 - **The public broker is a shared test service.** It has no uptime guarantee
   and it rate-limits. A room that gets real use needs an account on a broker.
+  Only one of the public brokers in the list still answers on 443, so on a
+  network that shuts every other port the game hangs on that one service.
 - **Cards are private by convention, not by cryptography.** Anybody who
   subscribes to the room's topics on the broker can read what is sent, and the
   host's browser holds every hand.

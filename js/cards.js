@@ -53,6 +53,25 @@ export const DECK_SIZE = {
   molecules: Object.values(MOLECULE_COUNTS).reduce((a, b) => a + b, 0),
 };
 
+// The two cards the printed game sets apart: the atom card that is not an
+// atom, and the molecule card that is not a molecule. A game may be played
+// without them, and then neither is dealt nor drawn.
+export const isSpecialAtom = (el) => el === FUSION;
+export const isSpecialMolecule = (mol) => MOLECULES[mol]?.special === 'alkanes';
+
+// How large each deck is, with the special cards or without them.
+export function deckSizes(specials = true) {
+  let atoms = 0;
+  for (const [el, count] of Object.entries(ATOM_COUNTS)) {
+    if (specials || !isSpecialAtom(el)) atoms += count;
+  }
+  let molecules = 0;
+  for (const [mol, count] of Object.entries(MOLECULE_COUNTS)) {
+    if (specials || !isSpecialMolecule(mol)) molecules += count;
+  }
+  return { atoms, molecules };
+}
+
 /* ---------- the pictures ---------- */
 
 // Built from materials/ by tools/build-cards.mjs. Hebrew only for now; a
