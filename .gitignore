@@ -1,3 +1,7 @@
 node_modules/
 __pycache__/
 *.pyc
+
+# Written by npm install for the test-only dependencies; the site itself
+# has none, so the repository has never held one.
+package-lock.json
