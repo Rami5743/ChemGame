@@ -2,6 +2,7 @@ import {
   ATOM_COUNTS,
   MOLECULE_COUNTS,
   DECK_SIZE,
+  deckSizes,
   FUSION,
 } from '../../js/cards.js';
 import {
@@ -53,6 +54,38 @@ export default async function run({ check }) {
   check('card ids are unique', new Set([...atoms, ...mols].map((c) => c.id)).size === 108);
   check('the catalogue agrees with the printed counts',
     DECK_SIZE.atoms === 72 && DECK_SIZE.molecules === 36);
+
+  /* ---------- the deck without its special cards ---------- */
+
+  const plainAtoms = buildAtomDeck(false);
+  const plainMols = buildMoleculeDeck(false);
+  check('no fusion card is left in the atom deck',
+    !plainAtoms.some((c) => c.el === 'FUSION'));
+  check('and nothing else was taken out of it',
+    plainAtoms.length === 72 - ATOM_COUNTS.FUSION, plainAtoms.length);
+  check('no alkanes card is left in the molecule deck',
+    !plainMols.some((c) => c.mol === 'alkanes'));
+  check('and nothing else was taken out of that one either',
+    plainMols.length === 36 - MOLECULE_COUNTS.alkanes, plainMols.length);
+  check('every card that stayed kept the id it always had',
+    plainAtoms.every((c) => atoms.some((o) => o.id === c.id && o.el === c.el)) &&
+    plainMols.every((c) => mols.some((o) => o.id === c.id && o.mol === c.mol)));
+  check('the catalogue says how large each deck then is',
+    deckSizes(false).atoms === 69 && deckSizes(false).molecules === 35,
+    JSON.stringify(deckSizes(false)));
+  check('and leaves the printed deck as it was',
+    deckSizes().atoms === 72 && deckSizes().molecules === 36);
+
+  {
+    const g = newGame({ seats: ['a', 'b'], deal: { atoms: 12, molecules: 3 }, seed: 9, specials: false });
+    const everyAtom = [...g.atomDeck, ...g.hands.a.atoms, ...g.hands.b.atoms];
+    const everyMol = [...g.molDeck, ...g.hands.a.molecules, ...g.hands.b.molecules];
+    check('a game dealt without them holds none of them anywhere',
+      !everyAtom.some((c) => c.el === 'FUSION') && !everyMol.some((c) => c.mol === 'alkanes'));
+    check('and it says of itself that it is such a game', g.specials === false);
+    check('while an ordinary game still holds them',
+      newGame({ seats: ['a', 'b'], seed: 9 }).specials === true);
+  }
 
   /* ---------- being part of a molecule ---------- */
 

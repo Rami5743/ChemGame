@@ -67,11 +67,17 @@ const WORDS = {
     'lobby.atomsPer': 'קלפי אטום לכל שחקן',
     'lobby.molsPer': 'קלפי מולקולה לכל שחקן',
     'lobby.start': 'התחל משחק',
+    'lobby.startNext': 'התחל משחק נוסף',
+    'lobby.noSpecials': 'בלי הקלפים המיוחדים',
+    'lobby.withoutSpecials': 'קלף ההיתוך הגרעיני וקלף האלקאנים אינם במשחק הזה.',
     'lobby.orderNote': 'הסדר ברשימה הוא סדר התורות. עם ההתחלה החדר ננעל.',
     'lobby.hostWaiting': 'ממתין לשחקנים. אתה המארח.',
     'lobby.drag': 'גרור כדי לשנות את סדר המשחק',
     'lobby.addBot': 'הוסף רובוט',
     'lobby.dropBot': 'הסר את הרובוט',
+    'lobby.dropPlayer': 'הסר את השחקן',
+    'lobby.dropped': 'המארח הוציא אותך מהחדר. אפשר לפתוח משחק משלך.',
+    'lobby.playRobots': 'פתח משחק משלך ושחק מול רובוטים',
     'lobby.botName': 'שם הרובוט',
     'lobby.guestWaiting': 'ממתין שהמארח יתחיל את המשחק.',
     'lobby.connecting': 'מתחבר לשרת ההודעות…',
@@ -123,8 +129,11 @@ const WORDS = {
     'act.takeNothing': 'לא לקחת כלום',
     'act.confirm': 'אשר',
     'act.cancel': 'בטל',
-    'act.again': 'משחק חדש',
+    'act.again': 'משחק חדש, אותם שחקנים',
+    'act.room': 'חזרה לחדר ההמתנה',
     'field.carbons': 'אטומי פחמן',
+
+    'score.title': 'ניצחונות בחדר הזה:',
 
     'deck.atoms': 'קופת אטומים',
     'deck.atomsUsed': 'אטומים משומשים',
@@ -140,7 +149,15 @@ const WORDS = {
       'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת. רשת של מוסד או של מקום עבודה ' +
       'חוסמת לרוב את כל היציאה חוץ מגלישה רגילה. לחיצה על הכיתוב "מנותק" ' +
       'שלמעלה מראה מה ענה ומה לא. אפשר גם לנסות רשת אחרת, למשל לעבור מרשת ' +
-      'סלולרית לרשת אלחוטית או להפך, או לצרף לכתובת ?broker= עם שרת משלך.',
+      'סלולרית לרשת אלחוטית או להפך, או לצרף לכתובת ?broker= עם שרת משלך. ' +
+      'בלי שרת הודעות אי אפשר להגיע למארח, אבל אפשר לפתוח כאן משחק משלך ' +
+      'ולשחק מול רובוטים — לזה אין צורך ברשת בכלל.',
+    'alert.noBrokerHost':
+      'לא הצלחתי להגיע לאף שרת הודעות מהרשת הזאת, ולכן שחקנים אחרים אינם ' +
+      'יכולים להצטרף. המשחק עצמו יושב בדף הזה, ולכן אפשר להוסיף רובוטים ' +
+      'ולשחק מולם כאן גם בלי רשת. רשת של מוסד או של מקום עבודה חוסמת לרוב ' +
+      'את כל היציאה חוץ מגלישה רגילה. לחיצה על הכיתוב שלמעלה מראה מה ענה ' +
+      'ומה לא, ואפשר לנסות רשת אחרת או לצרף לכתובת ?broker= עם שרת משלך.',
     'links.title': 'החיבור לשרתי ההודעות:',
     'links.on': 'מחובר',
     'links.wait': 'מנסה',
@@ -213,11 +230,17 @@ const WORDS = {
     'lobby.atomsPer': 'Atom cards each',
     'lobby.molsPer': 'Molecule cards each',
     'lobby.start': 'Start the game',
+    'lobby.startNext': 'Start another game',
+    'lobby.noSpecials': 'Without the special cards',
+    'lobby.withoutSpecials': 'The nuclear fusion card and the alkanes card are out of this game.',
     'lobby.orderNote': 'The order on the list is the order of turns. Starting locks the room.',
     'lobby.hostWaiting': 'Waiting for players. You are the host.',
     'lobby.drag': 'Drag to change the order of play',
     'lobby.addBot': 'Add a robot',
     'lobby.dropBot': 'Take the robot away',
+    'lobby.dropPlayer': 'Take the player out',
+    'lobby.dropped': 'The host took you out of the room. You can open a game of your own.',
+    'lobby.playRobots': 'Open a game of your own and play against robots',
     'lobby.botName': 'The robot\u2019s name',
     'lobby.guestWaiting': 'Waiting for the host to start.',
     'lobby.connecting': 'Connecting to the message server…',
@@ -269,8 +292,11 @@ const WORDS = {
     'act.takeNothing': 'Take nothing',
     'act.confirm': 'Confirm',
     'act.cancel': 'Cancel',
-    'act.again': 'New game',
+    'act.again': 'New game, same players',
+    'act.room': 'Back to the waiting room',
     'field.carbons': 'Carbon atoms',
+
+    'score.title': 'Wins in this room:',
 
     'deck.atoms': 'Atom deck',
     'deck.atomsUsed': 'Atoms used',
@@ -288,7 +314,17 @@ const WORDS = {
       'browsing. Tapping "disconnected" above shows what answered and what did ' +
       'not. You can also try another network, a mobile one instead of wireless ' +
       'or the other way round, or add ?broker= to the address with a server of ' +
-      'your own.',
+      'your own. Without one there is no reaching the host, but a game of your ' +
+      'own against robots can be opened right here, and that needs no network ' +
+      'at all.',
+    'alert.noBrokerHost':
+      'No message server could be reached from this network, so nobody else ' +
+      'can join. The game itself sits in this page, so robots can be added and ' +
+      'played against here with no network at all. The network of an ' +
+      'institution or a workplace usually closes everything but ordinary ' +
+      'browsing. Tapping the words above shows what answered and what did not, ' +
+      'and you can try another network or add ?broker= to the address with a ' +
+      'server of your own.',
     'links.title': 'The message servers:',
     'links.on': 'connected',
     'links.wait': 'trying',

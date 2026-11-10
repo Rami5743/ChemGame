@@ -98,9 +98,47 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 .status[data-state="wait"] { color: var(--warn); border-color: #5c4a22; }
 .status[data-state="err"] { color: var(--bad); border-color: #5e2f2c; }
 
-.settings { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.settings { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
 .settings .field { flex: 1 1 180px; }
-.settings input { width: 100%; }
+.settings .field input { width: 100%; }
+
+/* A box to tick sits on the line, not above it, and the whole thing is the
+   target: a finger on a phone has nothing smaller to aim at. */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 180px;
+  cursor: pointer;
+  padding: 8px 0;
+  color: var(--dim);
+  font-size: 14px;
+}
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: none; }
+
+/* ---------- the tally of a run of games ---------- */
+
+.score {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+.score-title { color: var(--dim); font-size: 13px; margin-bottom: 6px; }
+.score-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.score-list li { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.score-list .who { font-weight: 600; }
+.score-list .bot { color: var(--bot); }
+.score-list .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+}
+.score-list li.won .who, .score-list li.won .count { color: var(--good); }
+.score-list li.won .count { border-color: #2a5c40; }
 
 .linkbox {
   background: var(--panel);
@@ -406,9 +444,11 @@ button.primary:hover:not(:disabled) { background: #6fb6ff; }
 }
 .decks .pile-label { text-align: center; }
 
-.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
 .actions .num { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; }
 .actions .num input { width: 64px; }
+/* On the bar it sits beside the buttons and takes only the room it needs. */
+.actions .check { flex: 0 0 auto; padding: 0; }
 
 .hand { display: flex; gap: 16px; flex-wrap: wrap; min-height: 10px; margin-bottom: 8px; }
 /* A hand holds piles, not a row of singles: the cards of one kind lie over
